@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Announcements Widget</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--hub-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+      font-size: 13px;
+      background: #fff;
+      color: #111827;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid #e5e7eb;
+      flex-shrink: 0;
+    }
+    .header-title { font-size: 12px; font-weight: 700; color: #111827; display: flex; align-items: center; gap: 5px; }
+    .header-count { font-size: 11px; color: #6b7280; }
+
+    .ann-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .ann-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 14px;
+      border-bottom: 1px solid #f3f4f6;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      transition: background .1s;
+    }
+    .ann-row:last-child { border-bottom: none; }
+    .ann-row:hover { background: #f9fafb; }
+
+    .ann-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #059669; flex-shrink: 0; margin-top: 4px;
+    }
+
+    .ann-main { flex: 1; min-width: 0; }
+    .ann-title {
+      font-size: 12.5px; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      line-height: 1.35;
+    }
+    .ann-meta {
+      font-size: 11px; color: #9ca3af;
+      margin-top: 1px; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .footer {
+      padding: 7px 14px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      background: #f9fafb;
+    }
+    .new-link {
+      font-size: 11px; font-weight: 600;
+      color: #fff; background: #111827;
+      padding: 3px 10px; border-radius: 6px;
+      text-decoration: none;
+    }
+    .open-link {
+      font-size: 11px; font-weight: 600;
+      color: #111827; text-decoration: none;
+    }
+    .open-link:hover { text-decoration: underline; }
+
+    .empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: #9ca3af; font-size: 12px; gap: 4px;
+    }
+  </style>
+</head>
+<body>
+<script type="module">
+import { esc, formatRelativeDate } from "/hub-sdk.js";
+
+const DB     = window.__DB_URL  ?? "";
+const APP_ID = window.__APP_ID  ?? "announcements";
+
+async function dbq(sql, params = []) {
+  if (!DB) return { rows: [] };
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sql, params }),
+  });
+  return res.json();
+}
+
+async function load() {
+  const now = new Date().toISOString();
+  const { rows } = await dbq(
+    `SELECT id, title, author_name, expires_at, created_at
+     FROM announcements
+     WHERE status = 'approved' AND expires_at > ?
+     ORDER BY created_at DESC
+     LIMIT 5`,
+    [now]
+  );
+  render(rows ?? []);
+}
+
+function render(items) {
+  const header = `
+    <div class="header">
+      <span class="header-title">📢 Announcements</span>
+      <span class="header-count">${items.length === 5 ? "Latest" : `${items.length} active`}</span>
+    </div>`;
+
+  let rows;
+  if (items.length === 0) {
+    rows = `<div class="empty">
+      <span>No active announcements</span>
+      <a href="/run/${APP_ID}" style="color:#111827;font-weight:600;font-size:11px;text-decoration:none">View all →</a>
+    </div>`;
+  } else {
+    rows = `<div class="ann-list">
+      ${items.map(a => `
+        <a class="ann-row" href="/run/${APP_ID}">
+          <span class="ann-dot"></span>
+          <div class="ann-main">
+            <div class="ann-title">${esc(a.title)}</div>
+            <div class="ann-meta">${esc(a.author_name)} · ${formatRelativeDate(a.created_at)}</div>
+          </div>
+        </a>`).join("")}
+    </div>`;
+  }
+
+  const footer = `
+    <div class="footer">
+      <a class="open-link" href="/run/${APP_ID}">View all →</a>
+      <a class="new-link"  href="/run/${APP_ID}">+ Post</a>
+    </div>`;
+
+  document.body.innerHTML = header + rows + footer;
+}
+
+load().catch(() => {
+  document.body.innerHTML = `
+    <div class="empty">
+      <a href="/run/${APP_ID}" style="color:#111827;font-weight:600;text-decoration:none">Open Announcements →</a>
+    </div>`;
+});
+</script>
+</body>
+</html>

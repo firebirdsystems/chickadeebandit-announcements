@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Announcements</title>
+  <base href="/run/announcements/" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           var(--hub-bg, #f9fafb);
+      --card:         var(--hub-surface, #ffffff);
+      --border:       var(--hub-border, #e5e7eb);
+      --border-mid:   var(--hub-border, #d1d5db);
+      --text:         var(--hub-text, #111827);
+      --muted:        var(--hub-text-muted, #6b7280);
+      --accent:       var(--hub-primary, #111827);
+      --accent-hover: var(--hub-primary-hover, #374151);
+      --accent-fg:    var(--hub-primary-fg, #ffffff);
+      --radius:       var(--hub-radius, 0.5rem);
+      --shadow:       0 1px 3px rgba(0,0,0,.07);
+      --shadow-md:    0 4px 12px rgba(0,0,0,.1);
+      --red:          #dc2626;
+      --red-light:    #fee2e2;
+      --green:        #059669;
+      --green-light:  #d1fae5;
+      --amber:        #d97706;
+      --amber-light:  #fef3c7;
+      --blue:         #2563eb;
+      --blue-light:   #dbeafe;
+    }
+
+    body {
+      font-family: var(--hub-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: var(--hub-font-size, 15px);
+      line-height: 1.5;
+    }
+
+    .app { max-width: 720px; margin: 0 auto; padding: 16px; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: 8px; font-size: 0.875rem;
+      font-weight: 600; cursor: pointer; border: none;
+      transition: opacity .15s, background .15s; text-decoration: none;
+    }
+    .btn:disabled { opacity: .45; cursor: default; }
+    .btn-primary { background: var(--accent); color: var(--accent-fg); }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1.5px solid var(--border-mid); }
+    .btn-ghost:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .btn-danger { background: var(--red); color: white; }
+    .btn-danger:hover:not(:disabled) { opacity: .88; }
+    .btn-success { background: var(--green); color: white; }
+    .btn-success:hover:not(:disabled) { opacity: .88; }
+    .btn-sm { padding: 5px 12px; font-size: 0.8rem; }
+    .btn-xs { padding: 3px 8px; font-size: 0.75rem; border-radius: 6px; }
+
+    /* Page header */
+    .page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; gap: 10px; flex-wrap: wrap;
+    }
+    .page-header h1 { font-size: 1.25rem; font-weight: 700; }
+
+    /* Tabs */
+    .tabs {
+      display: flex; gap: 4px; margin-bottom: 16px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0;
+    }
+    .tab {
+      padding: 8px 14px; font-size: 0.875rem; font-weight: 600;
+      cursor: pointer; border: none; background: transparent;
+      color: var(--muted); border-bottom: 2px solid transparent;
+      margin-bottom: -2px; transition: color .15s, border-color .15s;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* Badge */
+    .badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 18px; height: 18px; padding: 0 5px;
+      border-radius: 9px; font-size: 0.7rem; font-weight: 700;
+      background: var(--red); color: white; line-height: 1;
+    }
+
+    /* Announcement cards */
+    .list { display: flex; flex-direction: column; gap: 10px; }
+
+    .ann-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      cursor: pointer; transition: box-shadow .15s, border-color .15s;
+    }
+    .ann-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-mid); }
+    .ann-card-inner { padding: 14px 16px; }
+
+    .ann-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: 10px; margin-bottom: 6px;
+    }
+    .ann-title { font-weight: 700; font-size: 1rem; line-height: 1.35; flex: 1; min-width: 0; }
+    .ann-body {
+      font-size: 0.875rem; color: var(--muted); margin-bottom: 10px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .ann-meta {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      font-size: 0.8rem; color: var(--muted);
+    }
+    .ann-meta-dot::before { content: "·"; margin-right: 10px; }
+    .ann-actions {
+      display: flex; gap: 6px; align-items: center;
+      border-top: 1px solid var(--border); padding: 10px 16px;
+    }
+    .ann-actions-spacer { flex: 1; }
+
+    /* Status badges */
+    .status-badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+      white-space: nowrap;
+    }
+    .status-pending  { background: var(--amber-light);  color: var(--amber); }
+    .status-approved { background: var(--green-light);  color: var(--green); }
+    .status-archived { background: #f3f4f6;              color: var(--muted); }
+
+    /* Empty state */
+    .empty {
+      text-align: center; padding: 48px 16px; color: var(--muted);
+    }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .empty p { font-size: 0.9rem; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; padding: 16px;
+    }
+    .modal {
+      background: var(--card); border-radius: calc(var(--radius) * 1.5);
+      box-shadow: var(--shadow-md); width: 100%; max-width: 520px;
+      max-height: calc(100vh - 32px); overflow-y: auto;
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px 0;
+    }
+    .modal-header h2 { font-size: 1.1rem; font-weight: 700; }
+    .modal-close {
+      background: none; border: none; cursor: pointer; color: var(--muted);
+      font-size: 1.25rem; line-height: 1; padding: 4px;
+    }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 16px 20px; }
+    .modal-actions {
+      display: flex; justify-content: flex-end; gap: 8px;
+      padding: 0 20px 18px;
+    }
+
+    /* Form */
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block; font-size: 0.85rem; font-weight: 600;
+      margin-bottom: 5px; color: var(--text);
+    }
+    .form-group input,
+    .form-group textarea {
+      width: 100%; padding: 9px 12px;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 0.9rem; font-family: inherit; color: var(--text);
+      background: var(--bg); transition: border-color .15s;
+      resize: vertical;
+    }
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none; border-color: var(--accent);
+    }
+    .form-hint { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+
+    /* Detail body text */
+    .detail-body {
+      font-size: 0.9rem; white-space: pre-wrap; word-break: break-word;
+      line-height: 1.6; color: var(--text); margin-bottom: 14px;
+    }
+    .detail-meta { font-size: 0.82rem; color: var(--muted); margin-bottom: 6px; }
+    .detail-divider {
+      border: none; border-top: 1px solid var(--border);
+      margin: 14px 0;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="page-header">
+    <h1>📢 Announcements</h1>
+    <button class="btn btn-primary" id="post-btn" onclick="openSubmitModal()">Post Announcement</button>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-tab="active"    onclick="switchTab('active')">Active</button>
+    <button class="tab"        data-tab="pending"   onclick="switchTab('pending')" id="pending-tab">
+      Pending <span id="pending-badge" class="badge" style="display:none"></span>
+    </button>
+    <button class="tab"        data-tab="archived"  onclick="switchTab('archived')">Archived</button>
+  </div>
+  <div id="list"></div>
+</div>
+
+<script type="module">
+import { memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate } from "/hub-sdk.js";
+import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate } from "./logic.js";
+
+const CONTEXT    = window.__CONTEXT_URL    ?? "";
+const DB         = window.__DB_URL         ?? "";
+const APP_ID     = window.__APP_ID         ?? "announcements";
+const ME         = window.__CURRENT_MEMBER ?? null;
+const EVENTS_URL = window.__EVENTS_URL     ?? "/api/events";
+
+const admin = isAdult(ME);
+
+let members         = [];
+let announcements   = [];
+let currentTab      = "active";
+let modalEl         = null;
+
+// ── DB helper ─────────────────────────────────────────────────────────────────
+
+async function db(sql, params = []) {
+  if (!DB) return { rows: [] };
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sql, params }),
+  });
+  return res.json();
+}
+
+// ── Members ───────────────────────────────────────────────────────────────────
+
+async function loadMembers() {
+  if (!CONTEXT) {
+    members = [
+      { id: "demo-1", name: "Alex", role: "admin" },
+      { id: "demo-2", name: "Jamie", role: "adult" },
+      { id: "demo-3", name: "Casey", role: "child" },
+    ];
+    return;
+  }
+  try {
+    const res = await fetch(`${CONTEXT}?keys=family.members`);
+    members = ((await res.json())["family.members"]) ?? [];
+  } catch { members = []; }
+}
+
+// ── Data loading ──────────────────────────────────────────────────────────────
+
+async function archiveExpired() {
+  if (!DB) return;
+  const now = new Date().toISOString();
+  await db(
+    `UPDATE announcements SET status = 'archived', updated_at = ? WHERE status = 'approved' AND expires_at < ?`,
+    [now, now]
+  );
+}
+
+async function loadAnnouncements() {
+  const { rows } = await db(`SELECT * FROM announcements ORDER BY created_at DESC`);
+  announcements = rows ?? [];
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+
+function memberName(id) {
+  return members.find(m => m.id === id)?.name ?? "Unknown";
+}
+
+function statusBadge(status) {
+  const labels = { pending: "Pending", approved: "Active", archived: "Archived" };
+  return `<span class="status-badge status-${esc(status)}">${labels[status] ?? esc(status)}</span>`;
+}
+
+function filteredList() {
+  if (currentTab === "active") {
+    return sortAnnouncements(
+      announcements.filter(a => a.status === "approved" && !isExpired(a.expires_at))
+    );
+  }
+  if (currentTab === "pending") {
+    const list = announcements.filter(a => a.status === "pending");
+    return sortAnnouncements(admin ? list : list.filter(a => a.author_id === ME?.id));
+  }
+  if (currentTab === "archived") {
+    return sortAnnouncements(
+      announcements.filter(a => a.status === "archived" || (a.status === "approved" && isExpired(a.expires_at)))
+    );
+  }
+  return [];
+}
+
+function render() {
+  // Update pending badge
+  const pendingCount = announcements.filter(a => a.status === "pending").length;
+  const ownPending   = announcements.filter(a => a.status === "pending" && a.author_id === ME?.id).length;
+  const badgeCount   = admin ? pendingCount : ownPending;
+  const badge  = document.getElementById("pending-badge");
+  if (badge) {
+    badge.textContent = badgeCount;
+    badge.style.display = badgeCount > 0 ? "" : "none";
+  }
+
+  // Highlight pending tab for admins when there are items
+  const pendingTab = document.getElementById("pending-tab");
+  if (pendingTab && admin && pendingCount > 0) {
+    pendingTab.style.color = currentTab !== "pending" ? "var(--amber)" : "";
+  }
+
+  const items = filteredList();
+  const listEl = document.getElementById("list");
+  if (!listEl) return;
+
+  if (items.length === 0) {
+    const msgs = {
+      active:   { icon: "📢", text: "No active announcements." },
+      pending:  { icon: "⏳", text: admin ? "No pending announcements." : "You have no pending submissions." },
+      archived: { icon: "📁", text: "No archived announcements." },
+    };
+    const { icon, text } = msgs[currentTab];
+    listEl.innerHTML = `<div class="empty"><div class="empty-icon">${icon}</div><p>${text}</p></div>`;
+    return;
+  }
+
+  listEl.innerHTML = `<div class="list">${items.map(ann => renderCard(ann)).join("")}</div>`;
+}
+
+function renderCard(ann) {
+  const effStatus = effectiveStatus(ann);
+  const expired   = isExpired(ann.expires_at);
+  const expiryLabel = effStatus === "archived" || expired
+    ? `Expired ${formatExpiryDate(ann.expires_at)}`
+    : `Expires ${formatExpiryDate(ann.expires_at)}`;
+
+  const adminActions = admin ? `
+    <div class="ann-actions" onclick="event.stopPropagation()">
+      ${ann.status === "pending" ? `<button class="btn btn-success btn-xs" onclick="approveAnn('${esc(ann.id)}')">Approve</button>` : ""}
+      <span class="ann-actions-spacer"></span>
+      <button class="btn btn-danger btn-xs" onclick="deleteAnn('${esc(ann.id)}')">Delete</button>
+    </div>` : "";
+
+  return `
+    <div class="ann-card" onclick="openDetail('${esc(ann.id)}')">
+      <div class="ann-card-inner">
+        <div class="ann-header">
+          <div class="ann-title">${esc(ann.title)}</div>
+          ${statusBadge(effStatus)}
+        </div>
+        <div class="ann-body">${esc(ann.body)}</div>
+        <div class="ann-meta">
+          <span>By ${esc(ann.author_name)}</span>
+          <span class="ann-meta-dot">${expiryLabel}</span>
+          <span class="ann-meta-dot">${formatRelativeDate(ann.created_at)}</span>
+        </div>
+      </div>
+      ${adminActions}
+    </div>`;
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────────
+
+function openModal(html) {
+  closeModal();
+  modalEl = document.createElement("div");
+  modalEl.className = "modal-backdrop";
+  modalEl.innerHTML = `<div class="modal">${html}</div>`;
+  modalEl.addEventListener("click", e => { if (e.target === modalEl) closeModal(); });
+  document.body.appendChild(modalEl);
+}
+
+function closeModal() { modalEl?.remove(); modalEl = null; }
+
+// ── Submit modal ──────────────────────────────────────────────────────────────
+
+function openSubmitModal() {
+  const expiry = defaultExpiry();
+  const label  = admin ? "Create Announcement" : "Post Announcement";
+  const hint   = admin
+    ? "As an admin, your announcement will be published immediately."
+    : "Your announcement will be reviewed before it goes live.";
+
+  openModal(`
+    <div class="modal-header">
+      <h2>${label}</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px">${hint}</p>
+      <div class="form-group">
+        <label for="f-title">Title</label>
+        <input id="f-title" type="text" maxlength="120" placeholder="Announcement title…" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label for="f-body">Description</label>
+        <textarea id="f-body" rows="4" maxlength="1000" placeholder="What do you want to announce?"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="f-expires">Expires on</label>
+        <input id="f-expires" type="date" value="${expiry}" min="${new Date().toISOString().slice(0,10)}" />
+        <p class="form-hint">After this date the announcement will be archived automatically.</p>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitAnn()">${label}</button>
+    </div>`);
+
+  setTimeout(() => document.getElementById("f-title")?.focus(), 50);
+}
+
+window.closeModal = closeModal;
+
+window.submitAnn = async function() {
+  const title   = document.getElementById("f-title")?.value.trim() ?? "";
+  const body    = document.getElementById("f-body")?.value.trim() ?? "";
+  const expires = document.getElementById("f-expires")?.value ?? "";
+
+  if (!title) { document.getElementById("f-title")?.focus(); return; }
+  if (!body)  { document.getElementById("f-body")?.focus(); return; }
+  if (!expires) return;
+
+  const btn = modalEl?.querySelector(".modal-actions .btn-primary");
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+
+  try {
+    const id      = crypto.randomUUID();
+    const now     = new Date().toISOString();
+    const status  = admin ? "approved" : "pending";
+    const authorId   = ME?.id   ?? "demo";
+    const authorName = ME?.name ?? "You";
+
+    await db(
+      `INSERT INTO announcements (id, title, body, status, author_id, author_name, expires_at, approved_by, approved_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, title, body, status, authorId, authorName,
+       expires, admin ? authorId : null, admin ? now : null, now, now]
+    );
+
+    await Promise.all([
+      loadAnnouncements(),
+      admin ? publishEvent("announcement.approved", id, { title, authorId }) : publishEvent("announcement.submitted", id, { title, authorId }),
+      admin ? notify(`📢 New Announcement: ${title}`, body.slice(0, 100)) : Promise.resolve(),
+    ]);
+
+    closeModal();
+    if (status === "approved") switchTab("active");
+    else switchTab("pending");
+    render();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = admin ? "Create Announcement" : "Post Announcement"; }
+    throw e;
+  }
+};
+
+// ── Detail modal ──────────────────────────────────────────────────────────────
+
+window.openDetail = function(id) {
+  const ann = announcements.find(a => a.id === id);
+  if (!ann) return;
+  const effStatus   = effectiveStatus(ann);
+  const expired     = isExpired(ann.expires_at);
+  const expiryLabel = expired
+    ? `Expired ${formatExpiryDate(ann.expires_at)}`
+    : `Expires ${formatExpiryDate(ann.expires_at)}`;
+
+  const approvedLine = ann.approved_by
+    ? `<p class="detail-meta">Approved by ${esc(memberName(ann.approved_by))} · ${formatRelativeDate(ann.approved_at)}</p>`
+    : "";
+
+  const adminButtons = admin ? `
+    <hr class="detail-divider"/>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${ann.status === "pending" ? `<button class="btn btn-success btn-sm" onclick="approveAnn('${esc(id)}')">Approve</button>` : ""}
+      <button class="btn btn-danger btn-sm" onclick="deleteAnn('${esc(id)}')">Delete</button>
+    </div>` : "";
+
+  openModal(`
+    <div class="modal-header">
+      <h2 style="flex:1;min-width:0;padding-right:8px">${esc(ann.title)}</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:10px">${statusBadge(effStatus)}</div>
+      <p class="detail-meta">By ${esc(ann.author_name)} · ${formatRelativeDate(ann.created_at)}</p>
+      <p class="detail-meta">${expiryLabel}</p>
+      ${approvedLine}
+      <hr class="detail-divider"/>
+      <p class="detail-body">${esc(ann.body)}</p>
+      ${adminButtons}
+    </div>`);
+};
+
+// ── Approve ───────────────────────────────────────────────────────────────────
+
+window.approveAnn = async function(id) {
+  const ann = announcements.find(a => a.id === id);
+  if (!ann) return;
+
+  const btn = document.activeElement;
+  if (btn instanceof HTMLButtonElement) { btn.disabled = true; btn.textContent = "Approving…"; }
+
+  try {
+    const now = new Date().toISOString();
+    await db(
+      `UPDATE announcements SET status = 'approved', approved_by = ?, approved_at = ?, updated_at = ? WHERE id = ?`,
+      [ME?.id ?? "system", now, now, id]
+    );
+
+    await Promise.all([
+      loadAnnouncements(),
+      publishEvent("announcement.approved", id, { title: ann.title, authorId: ann.author_id }),
+      notify(`📢 New Announcement: ${ann.title}`, ann.body.slice(0, 100)),
+    ]);
+
+    closeModal();
+    switchTab("active");
+    render();
+  } catch (e) {
+    if (btn instanceof HTMLButtonElement) { btn.disabled = false; btn.textContent = "Approve"; }
+    throw e;
+  }
+};
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+
+window.deleteAnn = async function(id) {
+  const ann = announcements.find(a => a.id === id);
+  if (!ann) return;
+
+  const confirmed = await hubConfirm({
+    message: "Delete this announcement?",
+    description: `"${ann.title}" will be permanently removed.`,
+    confirmLabel: "Delete",
+    destructive: true,
+  });
+  if (!confirmed) return;
+
+  await db(`DELETE FROM announcements WHERE id = ?`, [id]);
+  await loadAnnouncements();
+  closeModal();
+  render();
+};
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll(".tab").forEach(t => {
+    t.classList.toggle("active", t.dataset.tab === tab);
+    if (t.dataset.tab !== "pending") t.style.color = "";
+  });
+  render();
+}
+
+window.switchTab = switchTab;
+window.openSubmitModal = openSubmitModal;
+
+// ── Notifications & Events ────────────────────────────────────────────────────
+
+async function notify(title, body) {
+  await fetch("/api/notifications/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, body, url: `/run/${APP_ID}`, source_app_id: APP_ID }),
+  }).catch(() => {});
+}
+
+async function publishEvent(type, subjectId, payload = {}) {
+  await fetch(EVENTS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source_app_id: APP_ID, type, subject_id: subjectId, payload }),
+  }).catch(() => {});
+}
+
+// ── Demo data ─────────────────────────────────────────────────────────────────
+
+function loadDemoData() {
+  const now = new Date();
+  const future = (days) => {
+    const d = new Date(now); d.setDate(d.getDate() + days); return d.toISOString().slice(0,10);
+  };
+  const past = (days) => {
+    const d = new Date(now); d.setDate(d.getDate() - days); return d.toISOString();
+  };
+  announcements = [
+    { id: "demo-1", title: "Pool party this Saturday!", body: "Everyone is invited to the neighborhood pool party at 2pm. Bring a dish to share!", status: "approved", author_id: "demo-1", author_name: "Alex", expires_at: future(5), approved_by: "demo-1", approved_at: past(1), created_at: past(2), updated_at: past(1) },
+    { id: "demo-2", title: "Recycling schedule change", body: "Starting next month, recycling pickup moves to Tuesday instead of Wednesday. Please update your calendars.", status: "approved", author_id: "demo-2", author_name: "Jamie", expires_at: future(14), approved_by: "demo-1", approved_at: past(3), created_at: past(4), updated_at: past(3) },
+    { id: "demo-3", title: "Lost cat — please help", body: "Our cat Mochi has been missing since Thursday evening. Orange tabby, answers to his name. Please contact us if you see him!", status: "pending", author_id: "demo-3", author_name: "Casey", expires_at: future(7), approved_by: null, approved_at: null, created_at: past(1), updated_at: past(1) },
+    { id: "demo-4", title: "Summer BBQ recap", body: "Thanks to everyone who came out to the summer BBQ! It was a wonderful time.", status: "archived", author_id: "demo-1", author_name: "Alex", expires_at: past(10).slice(0,10), approved_by: "demo-1", approved_at: past(20), created_at: past(21), updated_at: past(10) },
+  ];
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+async function init() {
+  if (!DB) {
+    await loadMembers();
+    loadDemoData();
+    render();
+    return;
+  }
+
+  await Promise.all([loadMembers(), archiveExpired()]);
+  await loadAnnouncements();
+  render();
+}
+
+init();
+</script>
+</body>
+</html>

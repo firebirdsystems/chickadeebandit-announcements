@@ -1,0 +1,15 @@
+{
+  "name": "chickadee-app-announcements",
+  "version": "1.0.0",
+  "description": "Announcements app for Chickadee Bandit",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}

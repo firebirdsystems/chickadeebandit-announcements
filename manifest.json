@@ -1,0 +1,32 @@
+{
+  "id": "announcements",
+  "name": "Announcements",
+  "version": "1.0.0",
+  "description": "Post household announcements with admin approval, expiration, and notification support.",
+  "entrypoint": "index.html",
+  "runtime": "static",
+  "storage": "db",
+  "category": "family",
+  "tags": ["announcements", "notices", "admin"],
+  "data_access": {
+    "reads": ["family.members"],
+    "writes": []
+  },
+  "permissions": {
+    "default_audience": "everyone",
+    "requires_approval": false
+  },
+  "publishes": ["announcement.submitted", "announcement.approved"],
+  "alert_on": ["announcement.approved"],
+  "nav": {
+    "label": "Announcements"
+  },
+  "widget": {
+    "label": "Announcements",
+    "size": "small"
+  },
+  "resource_limits": {
+    "max_db_bytes": 5242880
+  },
+  "icon": "📢"
+}
