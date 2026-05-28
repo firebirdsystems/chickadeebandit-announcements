@@ -6,7 +6,7 @@
   "entrypoint": "index.html",
   "runtime": "static",
   "storage": "db",
-  "category": "family",
+  "category": "general",
   "tags": ["announcements", "notices", "admin"],
   "data_access": {
     "reads": ["family.members"],
