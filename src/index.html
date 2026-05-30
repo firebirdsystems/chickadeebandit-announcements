@@ -457,6 +457,15 @@ window.submitAnn = async function() {
       loadAnnouncements(),
       admin ? publishEvent("announcement.approved", id, { title, authorId }) : publishEvent("announcement.submitted", id, { title, authorId }),
       admin ? notify(`📢 New Announcement: ${title}`, body.slice(0, 100)) : Promise.resolve(),
+      admin ? fetch("/api/activity", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "message_posted",
+          actor: authorName,
+          description: `${authorName} posted a new announcement: "${title.slice(0, 60)}"`,
+          metadata: { deepLink: { appId: APP_ID, params: { announcementId: id } } },
+        }),
+      }).catch(() => {}) : Promise.resolve(),
     ]);
 
     closeModal();
@@ -527,6 +536,15 @@ window.approveAnn = async function(id) {
       loadAnnouncements(),
       publishEvent("announcement.approved", id, { title: ann.title, authorId: ann.author_id }),
       notify(`📢 New Announcement: ${ann.title}`, ann.body.slice(0, 100)),
+      fetch("/api/activity", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "message_posted",
+          actor: ME?.name ?? "Admin",
+          description: `${ann.author_name} posted a new announcement: "${ann.title.slice(0, 60)}"`,
+          metadata: { deepLink: { appId: APP_ID, params: { announcementId: id } } },
+        }),
+      }).catch(() => {}),
     ]);
 
     closeModal();
@@ -608,6 +626,15 @@ function loadDemoData() {
   ];
 }
 
+// ── Deep link ─────────────────────────────────────────────────────────────────
+
+function handleDeepLink() {
+  const announcementId = new URLSearchParams(window.location.search).get("announcementId");
+  if (!announcementId) return;
+  const ann = announcements.find(a => a.id === announcementId);
+  if (ann) window.openDetail(announcementId);
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 async function init() {
@@ -615,12 +642,14 @@ async function init() {
     await loadMembers();
     loadDemoData();
     render();
+    handleDeepLink();
     return;
   }
 
   await Promise.all([loadMembers(), archiveExpired()]);
   await loadAnnouncements();
   render();
+  handleDeepLink();
 }
 
 init();
