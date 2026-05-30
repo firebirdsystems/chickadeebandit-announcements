@@ -28,5 +28,11 @@
   "resource_limits": {
     "max_db_bytes": 5242880
   },
-  "icon": "📢"
+  "icon": "📢",
+  "ai_access": {
+    "allowed": true,
+    "mode": "read_write",
+    "db_exports": ["active_announcements", "pending_announcements"],
+    "db_mutations": ["extend_expiry"]
+  }
 }
