@@ -33,6 +33,7 @@
     "allowed": true,
     "mode": "read_write",
     "db_exports": ["active_announcements", "pending_announcements"],
-    "db_mutations": ["extend_expiry"]
+    "db_mutations": ["extend_expiry"],
+    "db_inserts": ["create_announcement"]
   }
 }
