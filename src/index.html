@@ -457,6 +457,14 @@ window.submitAnn = async function() {
       loadAnnouncements(),
       admin ? publishEvent("announcement.approved", id, { title, authorId }) : publishEvent("announcement.submitted", id, { title, authorId }),
       admin ? notify(`📢 New Announcement: ${title}`, body.slice(0, 100)) : Promise.resolve(),
+      admin ? fetch("/api/messages", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          authorName: "Announcements",
+          body: `📢 ${authorName} posted a new announcement: "${title.slice(0, 60)}"`,
+          url: `/run/${APP_ID}?announcementId=${id}`,
+        }),
+      }).catch(() => {}) : Promise.resolve(),
       admin ? fetch("/api/activity", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -536,6 +544,14 @@ window.approveAnn = async function(id) {
       loadAnnouncements(),
       publishEvent("announcement.approved", id, { title: ann.title, authorId: ann.author_id }),
       notify(`📢 New Announcement: ${ann.title}`, ann.body.slice(0, 100)),
+      fetch("/api/messages", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          authorName: "Announcements",
+          body: `📢 ${ann.author_name} posted a new announcement: "${ann.title.slice(0, 60)}"`,
+          url: `/run/${APP_ID}?announcementId=${id}`,
+        }),
+      }).catch(() => {}),
       fetch("/api/activity", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
