@@ -226,7 +226,7 @@ const APP_ID     = window.__APP_ID         ?? "announcements";
 const ME         = window.__CURRENT_MEMBER ?? null;
 const EVENTS_URL = window.__EVENTS_URL     ?? "/api/events";
 
-const admin = ME?.role === "admin" || ME?.role === "owner";
+const admin = ME?.isAdmin === true;
 
 let members         = [];
 let announcements   = [];
