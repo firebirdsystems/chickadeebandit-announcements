@@ -1,5 +1,4 @@
-CREATE TABLE IF NOT EXISTS announcements (
-  household_id UUID    NOT NULL DEFAULT current_setting('app.household_id', true)::uuid,
+CREATE TABLE IF NOT EXISTS app_announcements__announcements (
   id           TEXT    NOT NULL,
   title        TEXT    NOT NULL,
   body         TEXT    NOT NULL,
@@ -11,5 +10,5 @@ CREATE TABLE IF NOT EXISTS announcements (
   approved_at  TEXT,
   created_at   TEXT    NOT NULL,
   updated_at   TEXT    NOT NULL,
-  PRIMARY KEY (household_id, id)
+  PRIMARY KEY (id)
 );

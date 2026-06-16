@@ -6,9 +6,8 @@ SELECT
   expires_at,
   approved_at,
   created_at
-FROM announcements
-WHERE household_id = current_setting('app.household_id', true)::uuid
-  AND status       = 'approved'
-  AND expires_at   > NOW()::text
+FROM app_announcements__announcements
+WHERE status       = 'approved'
+  AND expires_at   > datetime('now')
 ORDER BY created_at DESC
 LIMIT 50

@@ -1,6 +1,5 @@
-INSERT INTO announcements (
+INSERT INTO app_announcements__announcements (
   id,
-  household_id,
   title,
   body,
   status,
@@ -10,14 +9,13 @@ INSERT INTO announcements (
   created_at,
   updated_at
 ) VALUES (
-  gen_random_uuid()::text,
-  current_setting('app.household_id', true)::uuid,
+  gen_random_uuid(),
   $1,
   $2,
   'pending',
   'ai',
   'AI',
   $3,
-  NOW()::text,
-  NOW()::text
+  datetime('now'),
+  datetime('now')
 )

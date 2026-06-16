@@ -114,7 +114,7 @@ async function load() {
   const now = new Date().toISOString();
   const { rows } = await dbq(
     `SELECT id, title, author_name, expires_at, created_at
-     FROM announcements
+     FROM app_announcements__announcements
      WHERE status = 'approved' AND expires_at > ?
      ORDER BY created_at DESC
      LIMIT 5`,

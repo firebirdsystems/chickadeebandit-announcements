@@ -268,13 +268,13 @@ async function archiveExpired() {
   if (!DB) return;
   const now = new Date().toISOString();
   await db(
-    `UPDATE announcements SET status = 'archived', updated_at = ? WHERE status = 'approved' AND expires_at < ?`,
+    `UPDATE app_announcements__announcements SET status = 'archived', updated_at = ? WHERE status = 'approved' AND expires_at < ?`,
     [now, now]
   );
 }
 
 async function loadAnnouncements() {
-  const { rows } = await db(`SELECT * FROM announcements ORDER BY created_at DESC`);
+  const { rows } = await db(`SELECT * FROM app_announcements__announcements ORDER BY created_at DESC`);
   announcements = rows ?? [];
 }
 
@@ -447,7 +447,7 @@ window.submitAnn = async function() {
     const authorName = ME?.name ?? "You";
 
     await db(
-      `INSERT INTO announcements (id, title, body, status, author_id, author_name, expires_at, approved_by, approved_at, created_at, updated_at)
+      `INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, approved_by, approved_at, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, title, body, status, authorId, authorName,
        expires, admin ? authorId : null, admin ? now : null, now, now]
@@ -537,7 +537,7 @@ window.approveAnn = async function(id) {
   try {
     const now = new Date().toISOString();
     await db(
-      `UPDATE announcements SET status = 'approved', approved_by = ?, approved_at = ?, updated_at = ? WHERE id = ?`,
+      `UPDATE app_announcements__announcements SET status = 'approved', approved_by = ?, approved_at = ?, updated_at = ? WHERE id = ?`,
       [ME?.id ?? "system", now, now, id]
     );
 
@@ -588,7 +588,7 @@ window.deleteAnn = async function(id) {
   });
   if (!confirmed) return;
 
-  await db(`DELETE FROM announcements WHERE id = ?`, [id]);
+  await db(`DELETE FROM app_announcements__announcements WHERE id = ?`, [id]);
   await loadAnnouncements();
   closeModal();
   render();

@@ -1,7 +1,6 @@
-UPDATE announcements
+UPDATE app_announcements__announcements
 SET
   expires_at = $2,
-  updated_at = NOW()::text
+  updated_at = datetime('now')
 WHERE id           = $1
-  AND household_id = current_setting('app.household_id', true)::uuid
   AND status       = 'approved'
