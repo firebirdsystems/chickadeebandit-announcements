@@ -52,6 +52,7 @@
       width: 7px; height: 7px; border-radius: 50%;
       background: #059669; flex-shrink: 0; margin-top: 4px;
     }
+    .ann-dot.critical { background: #dc2626; }
 
     .ann-main { flex: 1; min-width: 0; }
     .ann-title {
@@ -113,10 +114,10 @@ async function dbq(sql, params = []) {
 async function load() {
   const now = new Date().toISOString();
   const { rows } = await dbq(
-    `SELECT id, title, author_name, expires_at, created_at
+    `SELECT id, title, author_name, expires_at, created_at, is_critical
      FROM app_announcements__announcements
      WHERE status = 'approved' AND expires_at > ?
-     ORDER BY created_at DESC
+     ORDER BY is_critical DESC, created_at DESC
      LIMIT 5`,
     [now]
   );
@@ -139,10 +140,10 @@ function render(items) {
   } else {
     rows = `<div class="ann-list">
       ${items.map(a => `
-        <a class="ann-row" href="/run/${APP_ID}">
-          <span class="ann-dot"></span>
+        <a class="ann-row" href="/run/${APP_ID}?announcementId=${esc(a.id)}">
+          <span class="ann-dot${a.is_critical ? ' critical' : ''}"></span>
           <div class="ann-main">
-            <div class="ann-title">${esc(a.title)}</div>
+            <div class="ann-title">${a.is_critical ? '🚨 ' : ''}${esc(a.title)}</div>
             <div class="ann-meta">${esc(a.author_name)} · ${formatRelativeDate(a.created_at)}</div>
           </div>
         </a>`).join("")}

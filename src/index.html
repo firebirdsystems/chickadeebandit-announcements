@@ -133,6 +133,27 @@
     .status-pending  { background: var(--amber-light);  color: var(--amber); }
     .status-approved { background: var(--green-light);  color: var(--green); }
     .status-archived { background: #f3f4f6;              color: var(--muted); }
+    .status-critical { background: var(--red-light);    color: var(--red); }
+
+    /* Critical toggle */
+    .toggle-row {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      background: var(--red-light); border: 1.5px solid #fca5a5;
+      border-radius: 8px; cursor: pointer;
+    }
+    .toggle-row input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--red); }
+    .toggle-row label { font-size: 0.875rem; font-weight: 600; color: var(--red); cursor: pointer; flex: 1; }
+    .toggle-row .toggle-hint { font-size: 0.78rem; color: #b91c1c; }
+
+    /* Acknowledge banner */
+    .ack-banner {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: var(--red-light); border: 1.5px solid #fca5a5;
+      border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+    }
+    .ack-banner p { font-size: 0.85rem; font-weight: 600; color: var(--red); }
+    .ack-done { font-size: 0.82rem; color: var(--green); font-weight: 600; }
+    .ack-list { margin-top: 10px; font-size: 0.8rem; color: var(--muted); }
 
     /* Empty state */
     .empty {
@@ -207,7 +228,7 @@
     <button class="btn btn-primary" id="post-btn" onclick="openSubmitModal()">Post Announcement</button>
   </div>
   <div class="tabs">
-    <button class="tab active" data-tab="active"    onclick="switchTab('active')">Active</button>
+    <button class="tab active" data-tab="active"    onclick="switchTab('active')">Active <span id="critical-badge" class="badge" style="display:none;background:var(--red)"></span></button>
     <button class="tab"        data-tab="pending"   onclick="switchTab('pending')" id="pending-tab">
       Pending <span id="pending-badge" class="badge" style="display:none"></span>
     </button>
@@ -230,6 +251,7 @@ const admin = ME?.isAdmin === true;
 
 let members         = [];
 let announcements   = [];
+let acknowledgements = [];
 let currentTab      = "active";
 let modalEl         = null;
 
@@ -278,6 +300,19 @@ async function loadAnnouncements() {
   announcements = rows ?? [];
 }
 
+async function loadAcknowledgements() {
+  if (!ME?.id || !DB) return;
+  const { rows } = await db(
+    `SELECT announcement_id, acknowledged_at FROM app_announcements__acknowledgements WHERE member_id = ?`,
+    [ME.id]
+  );
+  acknowledgements = rows ?? [];
+}
+
+function hasAcknowledged(announcementId) {
+  return acknowledgements.some(a => a.announcement_id === announcementId);
+}
+
 // ── Render ────────────────────────────────────────────────────────────────────
 
 function memberName(id) {
@@ -318,6 +353,17 @@ function render() {
     badge.style.display = badgeCount > 0 ? "" : "none";
   }
 
+  // Update unacknowledged critical badge on Active tab
+  const unackCritical = announcements.filter(a =>
+    a.status === "approved" && !isExpired(a.expires_at) &&
+    a.is_critical && !hasAcknowledged(a.id)
+  ).length;
+  const critBadge = document.getElementById("critical-badge");
+  if (critBadge) {
+    critBadge.textContent = unackCritical;
+    critBadge.style.display = unackCritical > 0 ? "" : "none";
+  }
+
   // Highlight pending tab for admins when there are items
   const pendingTab = document.getElementById("pending-tab");
   if (pendingTab && admin && pendingCount > 0) {
@@ -349,6 +395,20 @@ function renderCard(ann) {
     ? `Expired ${formatExpiryDate(ann.expires_at)}`
     : `Expires ${formatExpiryDate(ann.expires_at)}`;
 
+  const isCritical = !!ann.is_critical;
+  const acked = isCritical && hasAcknowledged(ann.id);
+  const needsAck = isCritical && !acked && effStatus === "approved";
+
+  const criticalBadge = isCritical
+    ? `<span class="status-badge status-critical" style="margin-left:6px">🚨 Critical</span>`
+    : "";
+
+  const ackIndicator = needsAck
+    ? `<span style="font-size:0.75rem;color:var(--red);font-weight:600;margin-left:auto">Requires acknowledgement</span>`
+    : (acked ? `<span style="font-size:0.75rem;color:var(--green);font-weight:600;margin-left:auto">✓ Acknowledged</span>` : "");
+
+  const cardBorder = needsAck ? `style="border-color:#fca5a5;border-width:2px"` : "";
+
   const adminActions = admin ? `
     <div class="ann-actions" onclick="event.stopPropagation()">
       ${ann.status === "pending" ? `<button class="btn btn-success btn-xs" onclick="approveAnn('${esc(ann.id)}')">Approve</button>` : ""}
@@ -357,17 +417,21 @@ function renderCard(ann) {
     </div>` : "";
 
   return `
-    <div class="ann-card" onclick="openDetail('${esc(ann.id)}')">
+    <div class="ann-card" onclick="openDetail('${esc(ann.id)}')" ${cardBorder}>
       <div class="ann-card-inner">
         <div class="ann-header">
           <div class="ann-title">${esc(ann.title)}</div>
-          ${statusBadge(effStatus)}
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+            ${criticalBadge}
+            ${statusBadge(effStatus)}
+          </div>
         </div>
         <div class="ann-body">${esc(ann.body)}</div>
         <div class="ann-meta">
           <span>By ${esc(ann.author_name)}</span>
           <span class="ann-meta-dot">${expiryLabel}</span>
           <span class="ann-meta-dot">${formatRelativeDate(ann.created_at)}</span>
+          ${ackIndicator}
         </div>
       </div>
       ${adminActions}
@@ -416,6 +480,13 @@ function openSubmitModal() {
         <input id="f-expires" type="date" value="${expiry}" min="${new Date().toISOString().slice(0,10)}" />
         <p class="form-hint">After this date the announcement will be archived automatically.</p>
       </div>
+      <div class="form-group">
+        <div class="toggle-row" onclick="document.getElementById('f-critical').click();event.stopPropagation()">
+          <input id="f-critical" type="checkbox" onclick="event.stopPropagation()" />
+          <label for="f-critical" onclick="event.stopPropagation()">Mark as Critical</label>
+          <span class="toggle-hint">Members must acknowledge this announcement</span>
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -428,9 +499,10 @@ function openSubmitModal() {
 window.closeModal = closeModal;
 
 window.submitAnn = async function() {
-  const title   = document.getElementById("f-title")?.value.trim() ?? "";
-  const body    = document.getElementById("f-body")?.value.trim() ?? "";
-  const expires = document.getElementById("f-expires")?.value ?? "";
+  const title      = document.getElementById("f-title")?.value.trim() ?? "";
+  const body       = document.getElementById("f-body")?.value.trim() ?? "";
+  const expires    = document.getElementById("f-expires")?.value ?? "";
+  const isCritical = document.getElementById("f-critical")?.checked ? 1 : 0;
 
   if (!title) { document.getElementById("f-title")?.focus(); return; }
   if (!body)  { document.getElementById("f-body")?.focus(); return; }
@@ -447,10 +519,10 @@ window.submitAnn = async function() {
     const authorName = ME?.name ?? "You";
 
     await db(
-      `INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, approved_by, approved_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, approved_by, approved_at, created_at, updated_at, is_critical)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [id, title, body, status, authorId, authorName,
-       expires, admin ? authorId : null, admin ? now : null, now, now]
+       expires, admin ? authorId : null, admin ? now : null, now, now, isCritical]
     );
 
     await Promise.all([
@@ -465,7 +537,7 @@ window.submitAnn = async function() {
           url: `/run/${APP_ID}?announcementId=${id}`,
         }),
       }).catch(() => {}) : Promise.resolve(),
-      admin ? fetch("/api/activity", {
+      admin ? fetch(window.__ACTIVITY_URL ?? "/api/activity", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "message_posted",
@@ -501,9 +573,39 @@ window.openDetail = function(id) {
     ? `<p class="detail-meta">Approved by ${esc(memberName(ann.approved_by))} · ${formatRelativeDate(ann.approved_at)}</p>`
     : "";
 
+  const isCritical = !!ann.is_critical;
+  const acked = isCritical && hasAcknowledged(ann.id);
+  const ackedAt = isCritical && acked
+    ? acknowledgements.find(a => a.announcement_id === id)?.acknowledged_at
+    : null;
+
+  let criticalSection = "";
+  if (isCritical && effStatus === "approved") {
+    if (acked) {
+      criticalSection = `
+        <div class="ack-banner" style="background:var(--green-light);border-color:#6ee7b7">
+          <p style="color:var(--green)">✓ You acknowledged this announcement</p>
+          <span class="ack-done">${ackedAt ? formatRelativeDate(ackedAt) : ""}</span>
+        </div>`;
+    } else {
+      criticalSection = `
+        <div class="ack-banner">
+          <p>🚨 This is a critical announcement. Please acknowledge that you have read it.</p>
+          <button class="btn btn-danger btn-sm" onclick="acknowledgeAnn('${esc(id)}')">Acknowledge</button>
+        </div>`;
+    }
+  } else if (isCritical) {
+    criticalSection = `<span class="status-badge status-critical" style="margin-bottom:10px;display:inline-flex">🚨 Critical</span>`;
+  }
+
+  const adminAckSection = (admin && isCritical && effStatus === "approved")
+    ? `<div style="margin-top:10px"><button class="btn btn-ghost btn-xs" onclick="loadAckList('${esc(id)}')">View acknowledgements</button><div id="ack-list-${esc(id)}" class="ack-list"></div></div>`
+    : "";
+
   const adminButtons = admin ? `
     <hr class="detail-divider"/>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
+    ${adminAckSection}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:${adminAckSection ? '10px' : '0'}">
       ${ann.status === "pending" ? `<button class="btn btn-success btn-sm" onclick="approveAnn('${esc(id)}')">Approve</button>` : ""}
       <button class="btn btn-danger btn-sm" onclick="deleteAnn('${esc(id)}')">Delete</button>
     </div>` : "";
@@ -519,9 +621,45 @@ window.openDetail = function(id) {
       <p class="detail-meta">${expiryLabel}</p>
       ${approvedLine}
       <hr class="detail-divider"/>
+      ${criticalSection}
       <p class="detail-body">${esc(ann.body)}</p>
       ${adminButtons}
     </div>`);
+};
+
+// ── Acknowledge ───────────────────────────────────────────────────────────────
+
+window.acknowledgeAnn = async function(id) {
+  if (!ME?.id) return;
+  const btn = modalEl?.querySelector(".ack-banner .btn-danger");
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+
+  const now = new Date().toISOString();
+  await db(
+    `INSERT OR IGNORE INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, ?)`,
+    [id, ME.id, now]
+  );
+  await loadAcknowledgements();
+  closeModal();
+  render();
+  window.openDetail(id);
+};
+
+window.loadAckList = async function(announcementId) {
+  const el = document.getElementById(`ack-list-${announcementId}`);
+  if (!el) return;
+  el.textContent = "Loading…";
+  const { rows } = await db(
+    `SELECT member_id, acknowledged_at FROM app_announcements__acknowledgements WHERE announcement_id = ? ORDER BY acknowledged_at ASC`,
+    [announcementId]
+  );
+  if (!rows || rows.length === 0) {
+    el.textContent = "No acknowledgements yet.";
+    return;
+  }
+  el.innerHTML = rows.map(r =>
+    `<div>${esc(memberName(r.member_id))} — ${formatRelativeDate(r.acknowledged_at)}</div>`
+  ).join("");
 };
 
 // ── Approve ───────────────────────────────────────────────────────────────────
@@ -553,7 +691,7 @@ window.approveAnn = async function(id) {
           url: `/run/${APP_ID}?announcementId=${id}`,
         }),
       }).catch(() => {}),
-      fetch("/api/activity", {
+      fetch(window.__ACTIVITY_URL ?? "/api/activity", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "message_posted",
@@ -611,7 +749,7 @@ window.openSubmitModal = openSubmitModal;
 // ── Notifications & Events ────────────────────────────────────────────────────
 
 async function notify(title, body) {
-  await fetch("/api/notifications/send", {
+  await fetch(window.__NOTIFY_URL ?? "/api/notifications/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, body, url: `/run/${APP_ID}`, source_app_id: APP_ID }),
@@ -637,10 +775,10 @@ function loadDemoData() {
     const d = new Date(now); d.setDate(d.getDate() - days); return d.toISOString();
   };
   announcements = [
-    { id: "demo-1", title: "Pool party this Saturday!", body: "Everyone is invited to the neighborhood pool party at 2pm. Bring a dish to share!", status: "approved", author_id: "demo-1", author_name: "Alex", expires_at: future(5), approved_by: "demo-1", approved_at: past(1), created_at: past(2), updated_at: past(1) },
-    { id: "demo-2", title: "Recycling schedule change", body: "Starting next month, recycling pickup moves to Tuesday instead of Wednesday. Please update your calendars.", status: "approved", author_id: "demo-2", author_name: "Jamie", expires_at: future(14), approved_by: "demo-1", approved_at: past(3), created_at: past(4), updated_at: past(3) },
-    { id: "demo-3", title: "Lost cat — please help", body: "Our cat Mochi has been missing since Thursday evening. Orange tabby, answers to his name. Please contact us if you see him!", status: "pending", author_id: "demo-3", author_name: "Casey", expires_at: future(7), approved_by: null, approved_at: null, created_at: past(1), updated_at: past(1) },
-    { id: "demo-4", title: "Summer BBQ recap", body: "Thanks to everyone who came out to the summer BBQ! It was a wonderful time.", status: "archived", author_id: "demo-1", author_name: "Alex", expires_at: past(10).slice(0,10), approved_by: "demo-1", approved_at: past(20), created_at: past(21), updated_at: past(10) },
+    { id: "demo-1", title: "Pool party this Saturday!", body: "Everyone is invited to the neighborhood pool party at 2pm. Bring a dish to share!", status: "approved", author_id: "demo-1", author_name: "Alex", expires_at: future(5), approved_by: "demo-1", approved_at: past(1), created_at: past(2), updated_at: past(1), is_critical: 0 },
+    { id: "demo-2", title: "New community rules — action required", body: "Updated community guidelines are now in effect. All residents must review and acknowledge these new rules. Key changes include quiet hours, guest parking policy, and common area usage.", status: "approved", author_id: "demo-1", author_name: "Alex", expires_at: future(30), approved_by: "demo-1", approved_at: past(1), created_at: past(1), updated_at: past(1), is_critical: 1 },
+    { id: "demo-3", title: "Lost cat — please help", body: "Our cat Mochi has been missing since Thursday evening. Orange tabby, answers to his name. Please contact us if you see him!", status: "pending", author_id: "demo-3", author_name: "Casey", expires_at: future(7), approved_by: null, approved_at: null, created_at: past(1), updated_at: past(1), is_critical: 0 },
+    { id: "demo-4", title: "Summer BBQ recap", body: "Thanks to everyone who came out to the summer BBQ! It was a wonderful time.", status: "archived", author_id: "demo-1", author_name: "Alex", expires_at: past(10).slice(0,10), approved_by: "demo-1", approved_at: past(20), created_at: past(21), updated_at: past(10), is_critical: 0 },
   ];
 }
 
@@ -665,7 +803,7 @@ async function init() {
   }
 
   await Promise.all([loadMembers(), archiveExpired()]);
-  await loadAnnouncements();
+  await Promise.all([loadAnnouncements(), loadAcknowledgements()]);
   render();
   handleDeepLink();
 }
