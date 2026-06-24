@@ -16,6 +16,19 @@
     "default_audience": "everyone",
     "requires_approval": false
   },
+  "row_policies": {
+    "announcements": {
+      "kind": "owner_or_visibility",
+      "member_column": "author_id",
+      "visibility_column": "status",
+      "everyone_values": ["pending", "approved", "archived"],
+      "write_owner_only": false
+    },
+    "acknowledgements": {
+      "kind": "owner_only",
+      "member_column": "member_id"
+    }
+  },
   "publishes": ["announcement.submitted", "announcement.approved"],
   "alert_on": ["announcement.approved"],
   "nav": {

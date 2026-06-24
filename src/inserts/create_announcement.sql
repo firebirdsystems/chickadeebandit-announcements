@@ -9,7 +9,7 @@ INSERT INTO app_announcements__announcements (
   created_at,
   updated_at
 ) VALUES (
-  gen_random_uuid(),
+  lower(hex(randomblob(16))),
   $1,
   $2,
   'pending',
