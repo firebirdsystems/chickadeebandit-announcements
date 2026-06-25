@@ -51,7 +51,9 @@
     "announcement.approved":  { "require_role": "adult" }
   },
   "notification_acls": {
-    "send": { "require_role": "adult" }
+    "send": {
+      "require_group_setting": { "settings_table": "settings", "settings_key": "moderator_group_id" }
+    }
   },
   "nav": {
     "label": "Announcements"
