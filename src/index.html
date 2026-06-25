@@ -263,10 +263,13 @@ let currentTab       = "active";
 let modalEl          = null;
 
 // Returns true if the current member may moderate announcements
-// (approve, delete, direct-publish). Server-enforced via bypass_group_setting.
+// (approve, delete, direct-publish). Mirrors the server: the `approvals` table is
+// `insert_privileged_only` keyed on the moderator group, and row policies CANNOT see
+// hub-admin — so a hub admin who is not in the moderator group cannot actually
+// approve. Gating on group membership only keeps the buttons honest (no silent 403).
+// Hub admins configure the moderator group via the settings gear (hubAdmin, line ~901).
 function canModerate() {
   if (!ME) return false;
-  if (hubAdmin) return true;
   if (!modGroupId) return false;
   const g = groups.find(g => g.id === modGroupId);
   return g?.memberIds?.includes(ME.id) ?? false;
