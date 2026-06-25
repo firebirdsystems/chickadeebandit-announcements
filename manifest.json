@@ -1,7 +1,7 @@
 {
   "id": "announcements",
   "name": "Announcements",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Post household announcements with admin approval, expiration, and notification support.",
   "entrypoint": "index.html",
   "runtime": "static",
@@ -9,7 +9,7 @@
   "category": "general",
   "tags": ["announcements", "notices", "admin"],
   "data_access": {
-    "reads": ["family.members"],
+    "reads": ["family.members", "family.groups"],
     "writes": []
   },
   "permissions": {
@@ -22,15 +22,37 @@
       "member_column": "author_id",
       "visibility_column": "status",
       "everyone_values": ["pending", "approved", "archived"],
-      "write_owner_only": false
+      "bypass_group_setting": { "settings_table": "settings", "settings_key": "moderator_group_id" },
+      "write_owner_only": true
+    },
+    "approvals": {
+      "kind": "inherit_visibility",
+      "fk_column": "announcement_id",
+      "parent_table": "announcements",
+      "writer_column": "approved_by",
+      "insert_privileged_only": true
     },
     "acknowledgements": {
       "kind": "owner_only",
       "member_column": "member_id"
+    },
+    "settings": {
+      "kind": "app_config"
     }
+  },
+  "admin_config": {
+    "settings_table": "settings",
+    "keys": ["moderator_group_id"]
   },
   "publishes": ["announcement.submitted", "announcement.approved"],
   "alert_on": ["announcement.approved"],
+  "publish_acls": {
+    "announcement.submitted": { "require_role": "adult" },
+    "announcement.approved":  { "require_role": "adult" }
+  },
+  "notification_acls": {
+    "send": { "require_role": "adult" }
+  },
   "nav": {
     "label": "Announcements"
   },

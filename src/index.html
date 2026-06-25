@@ -225,7 +225,10 @@
 <div class="app">
   <div class="page-header">
     <h1>📢 Announcements</h1>
-    <button class="btn btn-primary" id="post-btn" onclick="openSubmitModal()">Post Announcement</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-ghost" id="settings-btn" style="display:none" onclick="openModSettingsModal()">⚙️</button>
+      <button class="btn btn-primary" id="post-btn" onclick="openSubmitModal()">Post Announcement</button>
+    </div>
   </div>
   <div class="tabs">
     <button class="tab active" data-tab="active"    onclick="switchTab('active')">Active <span id="critical-badge" class="badge" style="display:none;background:var(--red)"></span></button>
@@ -241,19 +244,33 @@
 import { memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate } from "/hub-sdk.js";
 import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate } from "./logic.js";
 
-const CONTEXT    = window.__CONTEXT_URL    ?? "";
-const DB         = window.__DB_URL         ?? "";
-const APP_ID     = window.__APP_ID         ?? "announcements";
-const ME         = window.__CURRENT_MEMBER ?? null;
-const EVENTS_URL = window.__EVENTS_URL     ?? "/api/events";
+const CONTEXT          = window.__CONTEXT_URL    ?? "";
+const DB               = window.__DB_URL         ?? "";
+const APP_ID           = window.__APP_ID         ?? "announcements";
+const ME               = window.__CURRENT_MEMBER ?? null;
+const EVENTS_URL       = window.__EVENTS_URL     ?? "/api/events";
+const ADMIN_CONFIG_URL = window.__ADMIN_CONFIG_URL ?? "";
 
-const admin = ME?.isAdmin === true;
+// Hub-level admin — used only for settings UI (configuring the moderator group).
+const hubAdmin = ME?.isAdmin === true;
 
-let members         = [];
-let announcements   = [];
+let members          = [];
+let groups           = [];
+let modGroupId       = null;
+let announcements    = [];
 let acknowledgements = [];
-let currentTab      = "active";
-let modalEl         = null;
+let currentTab       = "active";
+let modalEl          = null;
+
+// Returns true if the current member may moderate announcements
+// (approve, delete, direct-publish). Server-enforced via bypass_group_setting.
+function canModerate() {
+  if (!ME) return false;
+  if (hubAdmin) return true;
+  if (!modGroupId) return false;
+  const g = groups.find(g => g.id === modGroupId);
+  return g?.memberIds?.includes(ME.id) ?? false;
+}
 
 // ── DB helper ─────────────────────────────────────────────────────────────────
 
@@ -279,24 +296,43 @@ async function loadMembers() {
     return;
   }
   try {
-    const res = await fetch(`${CONTEXT}?keys=family.members`);
-    members = ((await res.json())["family.members"]) ?? [];
-  } catch { members = []; }
+    const res  = await fetch(`${CONTEXT}?keys=family.members,family.groups`);
+    const data = await res.json();
+    members = data["family.members"] ?? [];
+    groups  = data["family.groups"]  ?? [];
+  } catch { members = []; groups = []; }
+}
+
+async function loadSettings() {
+  if (!DB) return;
+  const { rows } = await db(
+    `SELECT value FROM app_announcements__settings WHERE key = 'moderator_group_id'`
+  );
+  modGroupId = rows?.[0]?.value || null;
 }
 
 // ── Data loading ──────────────────────────────────────────────────────────────
 
-async function archiveExpired() {
-  if (!DB) return;
+async function loadAnnouncements() {
   const now = new Date().toISOString();
-  await db(
-    `UPDATE app_announcements__announcements SET status = 'archived', updated_at = ? WHERE status = 'approved' AND expires_at < ?`,
+  const { rows } = await db(
+    `SELECT
+       a.id, a.title, a.body, a.author_id, a.author_name, a.expires_at,
+       a.created_at, a.updated_at, a.is_critical,
+       COALESCE(apr.approved_by, a.approved_by) AS approved_by,
+       COALESCE(apr.approved_at, a.approved_at) AS approved_at,
+       CASE
+         WHEN apr.announcement_id IS NOT NULL AND a.expires_at > ? THEN 'approved'
+         WHEN apr.announcement_id IS NOT NULL                       THEN 'archived'
+         WHEN a.expires_at <= ?                                     THEN 'archived'
+         WHEN a.status = 'approved'                                 THEN 'pending'
+         ELSE a.status
+       END AS status
+     FROM app_announcements__announcements a
+     LEFT JOIN app_announcements__approvals apr ON apr.announcement_id = a.id
+     ORDER BY a.created_at DESC`,
     [now, now]
   );
-}
-
-async function loadAnnouncements() {
-  const { rows } = await db(`SELECT * FROM app_announcements__announcements ORDER BY created_at DESC`);
   announcements = rows ?? [];
 }
 
@@ -326,18 +362,14 @@ function statusBadge(status) {
 
 function filteredList() {
   if (currentTab === "active") {
-    return sortAnnouncements(
-      announcements.filter(a => a.status === "approved" && !isExpired(a.expires_at))
-    );
+    return sortAnnouncements(announcements.filter(a => a.status === "approved"));
   }
   if (currentTab === "pending") {
     const list = announcements.filter(a => a.status === "pending");
-    return sortAnnouncements(admin ? list : list.filter(a => a.author_id === ME?.id));
+    return sortAnnouncements(canModerate() ? list : list.filter(a => a.author_id === ME?.id));
   }
   if (currentTab === "archived") {
-    return sortAnnouncements(
-      announcements.filter(a => a.status === "archived" || (a.status === "approved" && isExpired(a.expires_at)))
-    );
+    return sortAnnouncements(announcements.filter(a => a.status === "archived"));
   }
   return [];
 }
@@ -346,7 +378,7 @@ function render() {
   // Update pending badge
   const pendingCount = announcements.filter(a => a.status === "pending").length;
   const ownPending   = announcements.filter(a => a.status === "pending" && a.author_id === ME?.id).length;
-  const badgeCount   = admin ? pendingCount : ownPending;
+  const badgeCount   = canModerate() ? pendingCount : ownPending;
   const badge  = document.getElementById("pending-badge");
   if (badge) {
     badge.textContent = badgeCount;
@@ -355,8 +387,7 @@ function render() {
 
   // Update unacknowledged critical badge on Active tab
   const unackCritical = announcements.filter(a =>
-    a.status === "approved" && !isExpired(a.expires_at) &&
-    a.is_critical && !hasAcknowledged(a.id)
+    a.status === "approved" && a.is_critical && !hasAcknowledged(a.id)
   ).length;
   const critBadge = document.getElementById("critical-badge");
   if (critBadge) {
@@ -364,9 +395,9 @@ function render() {
     critBadge.style.display = unackCritical > 0 ? "" : "none";
   }
 
-  // Highlight pending tab for admins when there are items
+  // Highlight pending tab for moderators when there are items
   const pendingTab = document.getElementById("pending-tab");
-  if (pendingTab && admin && pendingCount > 0) {
+  if (pendingTab && canModerate() && pendingCount > 0) {
     pendingTab.style.color = currentTab !== "pending" ? "var(--amber)" : "";
   }
 
@@ -377,7 +408,7 @@ function render() {
   if (items.length === 0) {
     const msgs = {
       active:   { icon: "📢", text: "No active announcements." },
-      pending:  { icon: "⏳", text: admin ? "No pending announcements." : "You have no pending submissions." },
+      pending:  { icon: "⏳", text: canModerate() ? "No pending announcements." : "You have no pending submissions." },
       archived: { icon: "📁", text: "No archived announcements." },
     };
     const { icon, text } = msgs[currentTab];
@@ -409,7 +440,7 @@ function renderCard(ann) {
 
   const cardBorder = needsAck ? `style="border-color:#fca5a5;border-width:2px"` : "";
 
-  const adminActions = admin ? `
+  const adminActions = canModerate() ? `
     <div class="ann-actions" onclick="event.stopPropagation()">
       ${ann.status === "pending" ? `<button class="btn btn-success btn-xs" onclick="approveAnn('${esc(ann.id)}')">Approve</button>` : ""}
       <span class="ann-actions-spacer"></span>
@@ -455,9 +486,9 @@ function closeModal() { modalEl?.remove(); modalEl = null; }
 
 function openSubmitModal() {
   const expiry = defaultExpiry();
-  const label  = admin ? "Create Announcement" : "Post Announcement";
-  const hint   = admin
-    ? "As an admin, your announcement will be published immediately."
+  const label  = canModerate() ? "Create Announcement" : "Post Announcement";
+  const hint   = canModerate()
+    ? "As a moderator, your announcement will be published immediately."
     : "Your announcement will be reviewed before it goes live.";
 
   openModal(`
@@ -512,24 +543,35 @@ window.submitAnn = async function() {
   if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
 
   try {
-    const id      = crypto.randomUUID();
-    const now     = new Date().toISOString();
-    const status  = admin ? "approved" : "pending";
+    const id         = crypto.randomUUID();
+    const now        = new Date().toISOString();
+    const mod        = canModerate();
     const authorId   = ME?.id   ?? "demo";
     const authorName = ME?.name ?? "You";
 
     await db(
-      `INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, approved_by, approved_at, created_at, updated_at, is_critical)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, title, body, status, authorId, authorName,
-       expires, admin ? authorId : null, admin ? now : null, now, now, isCritical]
+      `INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical)
+       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
+      [id, title, body, authorId, authorName, expires, now, now, isCritical]
     );
 
+    if (mod) {
+      await db(
+        `INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, ?)`,
+        [id, authorId, now]
+      );
+    }
+
+    await loadAnnouncements();
+    const effective = announcements.find(a => a.id === id);
+    const isApproved = effective?.status === "approved";
+
     await Promise.all([
-      loadAnnouncements(),
-      admin ? publishEvent("announcement.approved", id, { title, authorId }) : publishEvent("announcement.submitted", id, { title, authorId }),
-      admin ? notify(`📢 New Announcement: ${title}`, body.slice(0, 100)) : Promise.resolve(),
-      admin ? fetch("/api/messages", {
+      isApproved
+        ? publishEvent("announcement.approved", id, { title, authorId })
+        : publishEvent("announcement.submitted", id, { title, authorId }),
+      isApproved ? notify(`📢 New Announcement: ${title}`, body.slice(0, 100)) : Promise.resolve(),
+      isApproved ? fetch("/api/messages", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           authorName: "Announcements",
@@ -537,7 +579,7 @@ window.submitAnn = async function() {
           url: `/run/${APP_ID}?announcementId=${id}`,
         }),
       }).catch(() => {}) : Promise.resolve(),
-      admin ? fetch(window.__ACTIVITY_URL ?? "/api/activity", {
+      isApproved ? fetch(window.__ACTIVITY_URL ?? "/api/activity", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "message_posted",
@@ -549,11 +591,10 @@ window.submitAnn = async function() {
     ]);
 
     closeModal();
-    if (status === "approved") switchTab("active");
-    else switchTab("pending");
+    switchTab(isApproved ? "active" : "pending");
     render();
   } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = admin ? "Create Announcement" : "Post Announcement"; }
+    if (btn) { btn.disabled = false; btn.textContent = canModerate() ? "Create Announcement" : "Post Announcement"; }
     throw e;
   }
 };
@@ -598,11 +639,11 @@ window.openDetail = function(id) {
     criticalSection = `<span class="status-badge status-critical" style="margin-bottom:10px;display:inline-flex">🚨 Critical</span>`;
   }
 
-  const adminAckSection = (admin && isCritical && effStatus === "approved")
+  const adminAckSection = (canModerate() && isCritical && effStatus === "approved")
     ? `<div style="margin-top:10px"><button class="btn btn-ghost btn-xs" onclick="loadAckList('${esc(id)}')">View acknowledgements</button><div id="ack-list-${esc(id)}" class="ack-list"></div></div>`
     : "";
 
-  const adminButtons = admin ? `
+  const adminButtons = canModerate() ? `
     <hr class="detail-divider"/>
     ${adminAckSection}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:${adminAckSection ? '10px' : '0'}">
@@ -665,7 +706,7 @@ window.loadAckList = async function(announcementId) {
 // ── Approve ───────────────────────────────────────────────────────────────────
 
 window.approveAnn = async function(id) {
-  if (!admin) return;
+  if (!canModerate()) return;
   const ann = announcements.find(a => a.id === id);
   if (!ann) return;
 
@@ -675,8 +716,8 @@ window.approveAnn = async function(id) {
   try {
     const now = new Date().toISOString();
     await db(
-      `UPDATE app_announcements__announcements SET status = 'approved', approved_by = ?, approved_at = ?, updated_at = ? WHERE id = ?`,
-      [ME?.id ?? "system", now, now, id]
+      `INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, ?)`,
+      [id, ME?.id ?? "system", now]
     );
 
     await Promise.all([
@@ -714,7 +755,7 @@ window.approveAnn = async function(id) {
 // ── Delete ────────────────────────────────────────────────────────────────────
 
 window.deleteAnn = async function(id) {
-  if (!admin) return;
+  if (!canModerate()) return;
   const ann = announcements.find(a => a.id === id);
   if (!ann) return;
 
@@ -726,10 +767,61 @@ window.deleteAnn = async function(id) {
   });
   if (!confirmed) return;
 
+  await db(`DELETE FROM app_announcements__approvals WHERE announcement_id = ?`, [id]);
   await db(`DELETE FROM app_announcements__announcements WHERE id = ?`, [id]);
   await loadAnnouncements();
   closeModal();
   render();
+};
+
+// ── Moderator settings (hub admin only) ───────────────────────────────────────
+
+window.openModSettingsModal = function() {
+  const groupOpts = groups.map(g => `
+    <option value="${esc(g.id)}" ${modGroupId === g.id ? "selected" : ""}>${esc(g.name)}</option>`
+  ).join("");
+  openModal(`
+    <div class="modal-header">
+      <h2>⚙️ Moderator Settings</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="mod-group">Moderator Group</label>
+        <select id="mod-group">
+          <option value="">— none (hub admins only) —</option>
+          ${groupOpts}
+        </select>
+        <p class="form-hint">Members of this group can approve, delete, and directly publish announcements. Configure group membership in hub settings.</p>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveModSettings()">Save</button>
+    </div>`);
+};
+
+window.saveModSettings = async function() {
+  const groupId = document.getElementById("mod-group")?.value ?? "";
+  const btn = modalEl?.querySelector(".modal-actions .btn-primary");
+  if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+  try {
+    const res = await fetch(ADMIN_CONFIG_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "moderator_group_id", value: groupId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error ?? "Save failed");
+    }
+    modGroupId = groupId || null;
+    closeModal();
+    render();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = "Save"; }
+    alert(e.message ?? "Save failed");
+  }
 };
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -802,8 +894,11 @@ async function init() {
     return;
   }
 
-  await Promise.all([loadMembers(), archiveExpired()]);
+  await Promise.all([loadMembers(), loadSettings()]);
   await Promise.all([loadAnnouncements(), loadAcknowledgements()]);
+  // Show settings gear for hub admins
+  const settingsBtn = document.getElementById("settings-btn");
+  if (settingsBtn && hubAdmin) settingsBtn.style.display = "";
   render();
   handleDeepLink();
 }

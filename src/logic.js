@@ -13,7 +13,6 @@ export function isExpired(expiresAt) {
 }
 
 export function effectiveStatus(ann) {
-  if (ann.status === "approved" && isExpired(ann.expires_at)) return "archived";
   return ann.status;
 }
 

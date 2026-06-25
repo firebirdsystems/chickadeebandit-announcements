@@ -114,10 +114,11 @@ async function dbq(sql, params = []) {
 async function load() {
   const now = new Date().toISOString();
   const { rows } = await dbq(
-    `SELECT id, title, author_name, expires_at, created_at, is_critical
-     FROM app_announcements__announcements
-     WHERE status = 'approved' AND expires_at > ?
-     ORDER BY is_critical DESC, created_at DESC
+    `SELECT a.id, a.title, a.author_name, a.expires_at, a.created_at, a.is_critical
+     FROM app_announcements__announcements a
+     JOIN app_announcements__approvals apr ON apr.announcement_id = a.id
+     WHERE a.expires_at > ?
+     ORDER BY a.is_critical DESC, a.created_at DESC
      LIMIT 5`,
     [now]
   );
