@@ -241,7 +241,7 @@
 </div>
 
 <script type="module">
-import { memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate } from "/hub-sdk.js";
+import { hubAlert, memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate } from "/hub-sdk.js";
 import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate } from "./logic.js";
 
 const CONTEXT          = window.__CONTEXT_URL    ?? "";
@@ -823,7 +823,7 @@ window.saveModSettings = async function() {
     render();
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = "Save"; }
-    alert(e.message ?? "Save failed");
+    hubAlert(e.message ?? "Save failed");
   }
 };
 
