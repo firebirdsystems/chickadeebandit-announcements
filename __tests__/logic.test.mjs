@@ -8,7 +8,21 @@ import {
   esc,
   initial,
   isAdult,
+  canModerate,
 } from "../src/logic.js";
+import { testPrivilegedGateContract } from "./helpers/privileged-gate.mjs";
+
+// ── canModerate ───────────────────────────────────────────────────────────────
+// Fronts the approvals insert_privileged_only policy + announcements moderator
+// bypass + notification send ACL (moderator_group_id), so it must satisfy the
+// shared privileged-gate contract (mirrors the hub: no fallback when unconfigured).
+
+testPrivilegedGateContract("canModerate", canModerate, {
+  member:   { id: "a1", role: "adult" },
+  outsider: { id: "a3", role: "adult" },
+  groups:   [{ id: "g1", memberIds: ["a1", "a2"] }],
+  groupId:  "g1",
+});
 
 // ── defaultExpiry ─────────────────────────────────────────────────────────────
 

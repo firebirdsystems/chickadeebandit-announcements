@@ -242,7 +242,7 @@
 
 <script type="module">
 import { hubAlert, memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate } from "/hub-sdk.js";
-import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate } from "./logic.js";
+import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate } from "./logic.js";
 
 const CONTEXT          = window.__CONTEXT_URL    ?? "";
 const DB               = window.__DB_URL         ?? "";
@@ -269,10 +269,7 @@ let modalEl          = null;
 // approve. Gating on group membership only keeps the buttons honest (no silent 403).
 // Hub admins configure the moderator group via the settings gear (hubAdmin, line ~901).
 function canModerate() {
-  if (!ME) return false;
-  if (!modGroupId) return false;
-  const g = groups.find(g => g.id === modGroupId);
-  return g?.memberIds?.includes(ME.id) ?? false;
+  return _canModerate(ME, groups, modGroupId);
 }
 
 // ── DB helper ─────────────────────────────────────────────────────────────────
