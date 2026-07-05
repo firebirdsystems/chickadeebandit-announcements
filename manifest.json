@@ -1,7 +1,7 @@
 {
   "id": "announcements",
   "name": "Announcements",
-  "version": "1.1.0",
+  "version": "1.0.0",
   "description": "Post household announcements with admin approval, expiration, and notification support.",
   "entrypoint": "index.html",
   "runtime": "static",
@@ -22,7 +22,7 @@
       "member_column": "author_id",
       "visibility_column": "status",
       "everyone_values": ["pending", "approved", "archived"],
-      "bypass_group_setting": { "settings_table": "settings", "settings_key": "moderator_group_id" },
+      "privileged_groups": [{ "settings_table": "settings", "settings_key": "moderator_group_id" }],
       "write_owner_only": true
     },
     "approvals": {
@@ -34,7 +34,11 @@
     },
     "acknowledgements": {
       "kind": "owner_only",
-      "member_column": "member_id"
+      "member_column": "member_id",
+      "unique_per_member": {
+        "member_column": "member_id",
+        "scope_columns": ["announcement_id"]
+      }
     },
     "settings": {
       "kind": "app_config"

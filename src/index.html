@@ -671,15 +671,19 @@ window.openDetail = function(id) {
 // ── Acknowledge ───────────────────────────────────────────────────────────────
 
 window.acknowledgeAnn = async function(id) {
-  if (!ME?.id) return;
+  if (!ME?.id || hasAcknowledged(id)) return;
   const btn = modalEl?.querySelector(".ack-banner .btn-danger");
   if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
 
   const now = new Date().toISOString();
-  await db(
-    `INSERT OR IGNORE INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, ?)`,
-    [id, ME.id, now]
-  );
+  try {
+    await db(
+      `INSERT OR IGNORE INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, ?)`,
+      [id, ME.id, now]
+    );
+  } catch {
+    // A concurrent duplicate acknowledgement (unique_per_member) — reload and move on.
+  }
   await loadAcknowledgements();
   closeModal();
   render();

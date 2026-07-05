@@ -1,10 +1,31 @@
 {
   "type": "array",
   "items": [
-    { "type": "string", "minLength": 1, "maxLength": 200, "description": "Announcement title" },
-    { "type": "string", "minLength": 1, "maxLength": 2000, "description": "Announcement body text" },
-    { "type": "string", "minLength": 1, "description": "Expiry date or datetime (e.g. 2026-07-01)" }
+    {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Announcement title"
+    },
+    {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "Announcement body text"
+    },
+    {
+      "type": "string",
+      "minLength": 1,
+      "description": "Expiry date or datetime (e.g. 2026-07-01)"
+    },
+    {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Calling member's ID \u2014 the hub overwrites this with the authenticated member_id; pass null"
+    }
   ],
   "minItems": 3,
-  "maxItems": 3
+  "maxItems": 4
 }

@@ -3,9 +3,9 @@ INSERT INTO app_announcements__announcements (
   title,
   body,
   status,
-  author_id,
   author_name,
   expires_at,
+  author_id,
   created_at,
   updated_at
 ) VALUES (
@@ -13,9 +13,9 @@ INSERT INTO app_announcements__announcements (
   $1,
   $2,
   'pending',
-  'ai',
   'AI',
   $3,
+  $4,
   datetime('now'),
   datetime('now')
 )
