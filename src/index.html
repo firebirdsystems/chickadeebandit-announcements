@@ -441,14 +441,14 @@ function renderCard(ann) {
   const cardBorder = needsAck ? `style="border-color:#fca5a5;border-width:2px"` : "";
 
   const adminActions = canModerate() ? `
-    <div class="ann-actions" onclick="event.stopPropagation()">
-      ${ann.status === "pending" ? `<button class="btn btn-success btn-xs" onclick="approveAnn('${esc(ann.id)}')">Approve</button>` : ""}
+    <div class="ann-actions">
+      ${ann.status === "pending" ? `<button class="btn btn-success btn-xs" data-action="approve" data-id="${esc(ann.id)}">Approve</button>` : ""}
       <span class="ann-actions-spacer"></span>
-      <button class="btn btn-danger btn-xs" onclick="deleteAnn('${esc(ann.id)}')">Delete</button>
+      <button class="btn btn-danger btn-xs" data-action="delete" data-id="${esc(ann.id)}">Delete</button>
     </div>` : "";
 
   return `
-    <div class="ann-card" onclick="openDetail('${esc(ann.id)}')" ${cardBorder}>
+    <div class="ann-card" data-action="open" data-id="${esc(ann.id)}" ${cardBorder}>
       <div class="ann-card-inner">
         <div class="ann-header">
           <div class="ann-title">${esc(ann.title)}</div>
@@ -632,7 +632,7 @@ window.openDetail = function(id) {
       criticalSection = `
         <div class="ack-banner">
           <p>🚨 This is a critical announcement. Please acknowledge that you have read it.</p>
-          <button class="btn btn-danger btn-sm" onclick="acknowledgeAnn('${esc(id)}')">Acknowledge</button>
+          <button class="btn btn-danger btn-sm" data-action="ack" data-id="${esc(id)}">Acknowledge</button>
         </div>`;
     }
   } else if (isCritical) {
@@ -640,15 +640,15 @@ window.openDetail = function(id) {
   }
 
   const adminAckSection = (canModerate() && isCritical && effStatus === "approved")
-    ? `<div style="margin-top:10px"><button class="btn btn-ghost btn-xs" onclick="loadAckList('${esc(id)}')">View acknowledgements</button><div id="ack-list-${esc(id)}" class="ack-list"></div></div>`
+    ? `<div style="margin-top:10px"><button class="btn btn-ghost btn-xs" data-action="acklist" data-id="${esc(id)}">View acknowledgements</button><div id="ack-list-${esc(id)}" class="ack-list"></div></div>`
     : "";
 
   const adminButtons = canModerate() ? `
     <hr class="detail-divider"/>
     ${adminAckSection}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:${adminAckSection ? '10px' : '0'}">
-      ${ann.status === "pending" ? `<button class="btn btn-success btn-sm" onclick="approveAnn('${esc(id)}')">Approve</button>` : ""}
-      <button class="btn btn-danger btn-sm" onclick="deleteAnn('${esc(id)}')">Delete</button>
+      ${ann.status === "pending" ? `<button class="btn btn-success btn-sm" data-action="approve" data-id="${esc(id)}">Approve</button>` : ""}
+      <button class="btn btn-danger btn-sm" data-action="delete" data-id="${esc(id)}">Delete</button>
     </div>` : "";
 
   openModal(`
@@ -841,6 +841,23 @@ function switchTab(tab) {
 
 window.switchTab = switchTab;
 window.openSubmitModal = openSubmitModal;
+
+// Delegated handler for id-bearing actions. Using data-* attributes + this
+// listener (instead of inline onclick="fn('${id}')") is required because row
+// ids are attacker-controllable via raw /api/db and esc() does NOT escape the
+// single quotes an inline handler would break out of — a stored-XSS vector.
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  const id = el.dataset.id;
+  switch (el.dataset.action) {
+    case "open":    window.openDetail(id); break;
+    case "approve": window.approveAnn(id); break;
+    case "delete":  window.deleteAnn(id); break;
+    case "ack":     window.acknowledgeAnn(id); break;
+    case "acklist": window.loadAckList(id); break;
+  }
+});
 
 // ── Notifications & Events ────────────────────────────────────────────────────
 
