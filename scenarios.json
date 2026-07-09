@@ -1,0 +1,61 @@
+{
+  "scenarios": [
+    {
+      "name": "a member can acknowledge an announcement only once",
+      "members": { "author": "adult", "reader": "adult" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at) VALUES (?, ?, ?, 'approved', ?, ?, ?, ?, ?)",
+          "params": ["ann1", "Pool closed", "Maintenance", "{{author}}", "Author", "2099-01-01T00:00:00Z", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"]
+        },
+        {
+          "action": "db",
+          "as": "reader",
+          "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, ?)",
+          "params": ["ann1", "{{reader}}", "2026-01-02T00:00:00Z"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "reader",
+          "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, ?)",
+          "params": ["ann1", "{{reader}}", "2026-01-03T00:00:00Z"],
+          "expect": { "status": 403 }
+        }
+      ]
+    },
+    {
+      "name": "only the author edits their announcement; approvals require the moderator group",
+      "members": { "author": "adult", "other": "adult" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)",
+          "params": ["ann1", "Original", "Body", "{{author}}", "Author", "2099-01-01T00:00:00Z", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"]
+        },
+        {
+          "action": "db",
+          "as": "other",
+          "sql": "UPDATE app_announcements__announcements SET title = 'hijacked' WHERE id = ?",
+          "params": ["ann1"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "author",
+          "sql": "SELECT title FROM app_announcements__announcements WHERE id = ?",
+          "params": ["ann1"],
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "title": "Original" }] }
+        },
+        {
+          "action": "db",
+          "as": "other",
+          "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, ?)",
+          "params": ["ann1", "{{other}}", "2026-01-02T00:00:00Z"],
+          "expect": { "status": 403 }
+        }
+      ]
+    }
+  ]
+}
