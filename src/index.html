@@ -682,7 +682,7 @@ window.acknowledgeAnn = async function(id) {
       [id, ME.id, now]
     );
   } catch {
-    // A concurrent duplicate acknowledgement (unique_per_member) — reload and move on.
+    // A concurrent duplicate acknowledgement (max_per_member) — reload and move on.
   }
   await loadAcknowledgements();
   closeModal();
