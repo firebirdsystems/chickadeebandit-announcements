@@ -219,6 +219,14 @@
       border: none; border-top: 1px solid var(--border);
       margin: 14px 0;
     }
+
+    /* Transient status line — the only feedback for what the email send did. */
+    .toast {
+      position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+      max-width: min(90vw, 420px); padding: 10px 16px; border-radius: 8px;
+      background: var(--text); color: #fff; font-size: 0.85rem; line-height: 1.4;
+      box-shadow: 0 4px 14px rgba(0,0,0,.18); z-index: 60; text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -318,7 +326,7 @@ async function loadAnnouncements() {
   const { rows } = await db(
     `SELECT
        a.id, a.title, a.body, a.author_id, a.author_name, a.expires_at,
-       a.created_at, a.updated_at, a.is_critical,
+       a.created_at, a.updated_at, a.is_critical, a.email_everyone,
        COALESCE(apr.approved_by, a.approved_by) AS approved_by,
        COALESCE(apr.approved_at, a.approved_at) AS approved_at,
        CASE
@@ -518,6 +526,13 @@ function openSubmitModal() {
           <span class="toggle-hint">Members must acknowledge this announcement</span>
         </div>
       </div>
+      <div class="form-group">
+        <div class="toggle-row" onclick="document.getElementById('f-email').click();event.stopPropagation()">
+          <input id="f-email" type="checkbox" onclick="event.stopPropagation()" />
+          <label for="f-email" onclick="event.stopPropagation()">Also email everyone</label>
+          <span class="toggle-hint">Sends to each member's inbox once approved (premium households)</span>
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -534,6 +549,7 @@ window.submitAnn = async function() {
   const body       = document.getElementById("f-body")?.value.trim() ?? "";
   const expires    = document.getElementById("f-expires")?.value ?? "";
   const isCritical = document.getElementById("f-critical")?.checked ? 1 : 0;
+  const emailAll   = document.getElementById("f-email")?.checked ? 1 : 0;
 
   if (!title) { document.getElementById("f-title")?.focus(); return; }
   if (!body)  { document.getElementById("f-body")?.focus(); return; }
@@ -550,9 +566,9 @@ window.submitAnn = async function() {
     const authorName = ME?.name ?? "You";
 
     await db(
-      `INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical)
-       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`,
-      [id, title, body, authorId, authorName, expires, now, now, isCritical]
+      `INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone)
+       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`,
+      [id, title, body, authorId, authorName, expires, now, now, isCritical, emailAll]
     );
 
     if (mod) {
@@ -570,7 +586,7 @@ window.submitAnn = async function() {
       isApproved
         ? publishEvent("announcement.approved", id, { title, authorId })
         : publishEvent("announcement.submitted", id, { title, authorId }),
-      isApproved ? notify(`📢 New Announcement: ${title}`, body.slice(0, 100)) : Promise.resolve(),
+      isApproved ? notify(`📢 New Announcement: ${title}`, body.slice(0, 100), emailAll ? body : null) : Promise.resolve(),
       isApproved ? fetch("/api/messages", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -727,7 +743,7 @@ window.approveAnn = async function(id) {
     await Promise.all([
       loadAnnouncements(),
       publishEvent("announcement.approved", id, { title: ann.title, authorId: ann.author_id }),
-      notify(`📢 New Announcement: ${ann.title}`, ann.body.slice(0, 100)),
+      notify(`📢 New Announcement: ${ann.title}`, ann.body.slice(0, 100), ann.email_everyone ? ann.body : null),
       fetch("/api/messages", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -861,12 +877,52 @@ document.addEventListener("click", (e) => {
 
 // ── Notifications & Events ────────────────────────────────────────────────────
 
-async function notify(title, body) {
-  await fetch(window.__NOTIFY_URL ?? "/api/notifications/send", {
+// `emailBody` both requests the email channel and carries the full announcement
+// text — `body` stays a short preview because it feeds a push notification,
+// where anything longer is truncated by the OS anyway. The hub owns every gate
+// that matters (premium capability, per-member opt-out, monthly quota) and
+// reports what it did in `email`; the request never fails just because mail
+// didn't go out, so push is unaffected either way.
+async function notify(title, body, emailBody = null) {
+  const res = await fetch(window.__NOTIFY_URL ?? "/api/notifications/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, body, url: `/run/${APP_ID}`, source_app_id: APP_ID }),
-  }).catch(() => {});
+    body: JSON.stringify({
+      title, body, url: `/run/${APP_ID}`, source_app_id: APP_ID,
+      ...(emailBody ? { channels: ["push", "email"], email_body: emailBody } : {}),
+    }),
+  }).catch(() => null);
+  const alsoEmail = !!emailBody;
+  if (!alsoEmail || !res?.ok) return;
+  const email = await res.json().then(d => d?.email).catch(() => null);
+  if (email) reportEmailOutcome(email);
+}
+
+let toastTimer = null;
+function toast(message) {
+  let el = document.getElementById("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    el.className = "toast";
+    el.setAttribute("role", "status");
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.remove(), 5000);
+}
+
+const EMAIL_FAILURE_COPY = {
+  not_entitled: "Announcement posted. Emailing everyone needs a premium plan.",
+  no_transport: "Announcement posted, but email isn't configured for this hub.",
+  no_recipients: "Announcement posted. Nobody has an address set, so no email went out.",
+  quota_exhausted: "Announcement posted, but this household hit its monthly email limit.",
+};
+
+function reportEmailOutcome(email) {
+  if (email.reason) { toast(EMAIL_FAILURE_COPY[email.reason] ?? "Announcement posted without email."); return; }
+  if (email.sent > 0) toast(`Announcement posted and emailed to ${email.sent} ${email.sent === 1 ? "person" : "people"}.`);
 }
 
 async function publishEvent(type, subjectId, payload = {}) {

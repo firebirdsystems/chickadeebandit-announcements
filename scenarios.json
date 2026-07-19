@@ -56,6 +56,40 @@
           "expect": { "status": 403 }
         }
       ]
+    },
+    {
+      "name": "the email-everyone flag is written by its author and readable back",
+      "members": { "author": "adult", "other": "adult" },
+      "steps": [
+        {
+          "action": "db",
+          "as": "author",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, 0, 1)",
+          "params": ["ann-email", "Pool party", "Bring a dish", "{{author}}", "Author", "2099-01-01T00:00:00Z", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "author",
+          "sql": "SELECT email_everyone FROM app_announcements__announcements WHERE id = ?",
+          "params": ["ann-email"],
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "email_everyone": 1 }] }
+        },
+        {
+          "action": "db",
+          "as": "other",
+          "sql": "UPDATE app_announcements__announcements SET email_everyone = 1 WHERE id = ?",
+          "params": ["ann-email"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "author",
+          "sql": "SELECT email_everyone FROM app_announcements__announcements WHERE id = ?",
+          "params": ["ann-email"],
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "email_everyone": 1 }] }
+        }
+      ]
     }
   ]
 }
