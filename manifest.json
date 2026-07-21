@@ -8,7 +8,7 @@
   "storage": "db",
   "category": "general",
   "tags": ["announcements", "notices", "admin"],
-  "contexts": ["household", "shared_space"],
+  "contexts": ["household", "shared_space", "shared_space.roster"],
   "data_access": {
     "reads": ["family.members", "family.groups"],
     "writes": []
