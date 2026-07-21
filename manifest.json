@@ -1,13 +1,14 @@
 {
   "id": "announcements",
   "name": "Announcements",
-  "version": "1.1.0",
+  "version": "1.0.0",
   "description": "Post household announcements with admin approval, expiration, and notification support — including optional email to every member.",
   "entrypoint": "index.html",
   "runtime": "static",
   "storage": "db",
   "category": "general",
   "tags": ["announcements", "notices", "admin"],
+  "contexts": ["household", "shared_space"],
   "data_access": {
     "reads": ["family.members", "family.groups"],
     "writes": []
