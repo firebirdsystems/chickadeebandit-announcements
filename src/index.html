@@ -155,6 +155,16 @@
     .ack-done { font-size: 0.82rem; color: var(--green); font-weight: 600; }
     .ack-list { margin-top: 10px; font-size: 0.8rem; color: var(--muted); }
 
+    /* Moderator-not-configured notice */
+    .mod-notice {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: var(--amber-light); border: 1.5px solid #fcd34d;
+      border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+    }
+    .mod-notice p { font-size: 0.85rem; font-weight: 600; color: var(--amber); }
+    .mod-notice.info { background: var(--card); border-color: var(--border); }
+    .mod-notice.info p { color: var(--muted); font-weight: 500; }
+
     /* Empty state */
     .empty {
       text-align: center; padding: 48px 16px; color: var(--muted);
@@ -245,6 +255,7 @@
     </button>
     <button class="tab"        data-tab="archived"  onclick="switchTab('archived')">Archived</button>
   </div>
+  <div id="mod-notice"></div>
   <div id="list"></div>
 </div>
 
@@ -382,9 +393,38 @@ function filteredList() {
   return [];
 }
 
+// Surfaces the dead-end state where a household has pending announcements but no
+// moderator group is configured, so nobody (not even hub admins) can approve them.
+// Hub admins get an actionable prompt to the settings modal; everyone else gets a
+// quiet "waiting on an admin" note so a stuck queue doesn't read as broken.
+function renderModNotice(pendingCount) {
+  const el = document.getElementById("mod-notice");
+  if (!el) return;
+
+  const unconfigured = !modGroupId;
+  if (!unconfigured || pendingCount === 0) {
+    el.innerHTML = "";
+    return;
+  }
+
+  if (hubAdmin) {
+    el.innerHTML = `
+      <div class="mod-notice">
+        <p>No moderator group is set, so announcements can't be approved. Choose one to enable approvals.</p>
+        <button class="btn btn-primary btn-sm" onclick="openModSettingsModal()">Set moderator group</button>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <div class="mod-notice info">
+        <p>Waiting on an admin to set up announcement approvals.</p>
+      </div>`;
+  }
+}
+
 function render() {
   // Update pending badge
   const pendingCount = announcements.filter(a => a.status === "pending").length;
+  renderModNotice(pendingCount);
   const ownPending   = announcements.filter(a => a.status === "pending" && a.author_id === ME?.id).length;
   const badgeCount   = canModerate() ? pendingCount : ownPending;
   const badge  = document.getElementById("pending-badge");
@@ -809,10 +849,10 @@ window.openModSettingsModal = function() {
       <div class="form-group">
         <label for="mod-group">Moderator Group</label>
         <select id="mod-group">
-          <option value="">— none (hub admins only) —</option>
+          <option value="">— none (approvals disabled — no one can approve) —</option>
           ${groupOpts}
         </select>
-        <p class="form-hint">Members of this group can approve, delete, and directly publish announcements. Configure group membership in hub settings.</p>
+        <p class="form-hint">Members of this group can approve, delete, and directly publish announcements. Configure group membership in hub settings. If left as <em>none</em>, announcements can never be approved — not even by hub admins.</p>
       </div>
     </div>
     <div class="modal-actions">

@@ -108,7 +108,14 @@ async function dbq(sql, params = []) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sql, params }),
   });
-  return res.json();
+  const body = await res.json().catch(() => ({}));
+  // Surface a failed query instead of silently rendering the empty state — a
+  // rejected read (e.g. a row-policy 4xx) otherwise looks identical to "no
+  // announcements", which hides real bugs.
+  if (!res.ok || body?.error) {
+    throw new Error(body?.error ?? `db query failed (${res.status})`);
+  }
+  return body;
 }
 
 async function load() {
@@ -160,9 +167,10 @@ function render(items) {
   document.body.innerHTML = header + rows + footer;
 }
 
-load().catch(() => {
+load().catch((e) => {
   document.body.innerHTML = `
     <div class="empty">
+      <span style="color:#dc2626;font-size:11px;max-width:90%;text-align:center">${esc(String(e?.message ?? e))}</span>
       <a href="/run/${APP_ID}" style="color:#111827;font-weight:600;text-decoration:none">Open Announcements →</a>
     </div>`;
 });
