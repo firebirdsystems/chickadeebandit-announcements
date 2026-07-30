@@ -932,8 +932,10 @@ async function notify(title, body, emailBody = null) {
       ...(emailBody ? { channels: ["push", "email"], email_body: emailBody } : {}),
     }),
   }).catch(() => null);
+  // A 503 means push was delivered nowhere, but email fans out independently and
+  // its outcome still rides in the body — so read it on any response we got.
   const alsoEmail = !!emailBody;
-  if (!alsoEmail || !res?.ok) return;
+  if (!alsoEmail || !res) return;
   const email = await res.json().then(d => d?.email).catch(() => null);
   if (email) reportEmailOutcome(email);
 }
