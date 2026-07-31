@@ -161,3 +161,48 @@ if (manifest.ai_access) {
     });
   }
 }
+
+// Member removal (manifest.member_references). Authorship and approval are
+// household record — an announcement does not lose its author because the
+// author left, and the app renders a fallback for an id it cannot resolve.
+// Acknowledgements are the opposite: they are counted ("N of M acknowledged"),
+// so a departed member's row would keep inflating a critical announcement's
+// tally forever. The table is keyed (announcement_id, member_id) with no `id`
+// column, hence the rowid escape hatch.
+describe("member_references", () => {
+  it("keeps attribution and deletes acknowledgements", () => {
+    expect(manifest.member_references).toEqual({
+      announcements: [
+        { column: "author_id", on_removed: "keep" },
+        { column: "approved_by", on_removed: "keep" },
+      ],
+      approvals: { column: "approved_by", on_removed: "keep" },
+      acknowledgements: { column: "member_id", on_removed: "delete", id_column: "rowid" },
+    });
+  });
+});
+
+// Nothing ever removed an announcement, and an announcement is not one row: it
+// owns an approval and one acknowledgement per member. Retention ages the
+// announcement out and cascades, keyed on created_at rather than expires_at —
+// expiry is a display rule the app already honours, retention is how long the
+// record is kept. The hub requires an index leading on the timestamp column,
+// which is what migration 007 adds (the only prior index leads with `status`).
+describe("retention", () => {
+  it("expires announcements and cascades to their child rows", () => {
+    expect(manifest.row_policies.announcements.retain_days).toEqual({
+      default: 365,
+      timestamp_column: "created_at",
+      override_key: "announcement_history",
+      dependent_tables: [
+        { table: "approvals", foreign_key: "announcement_id" },
+        { table: "acknowledgements", foreign_key: "announcement_id" },
+      ],
+    });
+  });
+
+  it("indexes the retention timestamp", () => {
+    const sql = readFileSync(join(__dirname, "../migrations/007_retention_index.sql"), "utf-8");
+    expect(sql).toMatch(/ON app_announcements__announcements \(created_at\)/);
+  });
+});

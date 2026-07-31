@@ -24,7 +24,16 @@
       "visibility_column": "status",
       "everyone_values": ["pending", "approved", "archived"],
       "privileged_groups": [{ "settings_table": "settings", "settings_key": "moderator_group_id" }],
-      "write_owner_only": true
+      "write_owner_only": true,
+      "retain_days": {
+        "default": 365,
+        "timestamp_column": "created_at",
+        "override_key": "announcement_history",
+        "dependent_tables": [
+          { "table": "approvals", "foreign_key": "announcement_id" },
+          { "table": "acknowledgements", "foreign_key": "announcement_id" }
+        ]
+      }
     },
     "approvals": {
       "kind": "inherit_visibility",
@@ -52,6 +61,14 @@
   },
   "publishes": ["announcement.submitted", "announcement.approved"],
   "alert_on": ["announcement.approved"],
+  "member_references": {
+    "announcements": [
+      { "column": "author_id", "on_removed": "keep" },
+      { "column": "approved_by", "on_removed": "keep" }
+    ],
+    "approvals": { "column": "approved_by", "on_removed": "keep" },
+    "acknowledgements": { "column": "member_id", "on_removed": "delete", "id_column": "rowid" }
+  },
   "publish_acls": {
     "announcement.submitted": { "require_role": "adult" },
     "announcement.approved":  { "require_role": "adult" }

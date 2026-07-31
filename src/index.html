@@ -300,7 +300,26 @@ async function db(sql, params = []) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sql, params }),
   });
-  return res.json();
+  const json = await res.json();
+  // The hub reports a refused write as a JSON body with an `error` key
+  // (403 row policy, 400 bad statement, 507 over quota). fetch() does not
+  // reject on those, so without this throw every caller's rollback and
+  // error toast below is unreachable code.
+  if (!res.ok || json.error) throw new Error(json.error || `Database request failed (${res.status})`);
+  return json;
+}
+
+/** Several statements as one transaction — all apply, or none does. */
+async function dbBatch(statements) {
+  if (!DB || statements.length === 0) return { results: [] };
+  const res = await fetch(DB, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ statements }),
+  });
+  const json = await res.json();
+  if (!res.ok || json.error) throw new Error(json.error || `Database request failed (${res.status})`);
+  return json;
 }
 
 // ── Members ───────────────────────────────────────────────────────────────────
@@ -401,17 +420,34 @@ function renderModNotice(pendingCount) {
   const el = document.getElementById("mod-notice");
   if (!el) return;
 
-  const unconfigured = !modGroupId;
-  if (!unconfigured || pendingCount === 0) {
+  // Three ways the queue can be stuck, not one. A group id that points at a
+  // deleted group, or at a group whose roster has been emptied, leaves nobody
+  // privileged — exactly the dead end as an unset id — but the app used to see
+  // a configured id and say nothing at all, so pending announcements simply
+  // never moved and no screen explained why.
+  const group = modGroupId ? groups.find(g => g.id === modGroupId) : null;
+  const problem = !modGroupId ? "unset"
+    : !group ? "missing"
+    : (group.memberIds ?? []).length === 0 ? "empty"
+    : null;
+  if (!problem || pendingCount === 0) {
     el.innerHTML = "";
     return;
   }
 
+  const cause = {
+    unset:   "No moderator group is set",
+    missing: "The moderator group has been deleted",
+    empty:   `The moderator group (${esc(group?.name ?? "")}) has no members`,
+  }[problem];
+
   if (hubAdmin) {
     el.innerHTML = `
       <div class="mod-notice">
-        <p>No moderator group is set, so announcements can't be approved. Choose one to enable approvals.</p>
-        <button class="btn btn-primary btn-sm" onclick="openModSettingsModal()">Set moderator group</button>
+        <p>${cause}, so announcements can't be approved. ${problem === "empty"
+          ? "Add members to it in hub settings, or choose a different group."
+          : "Choose one to enable approvals."}</p>
+        <button class="btn btn-primary btn-sm" onclick="openModSettingsModal()">${problem === "unset" ? "Set moderator group" : "Change moderator group"}</button>
       </div>`;
   } else {
     el.innerHTML = `
@@ -638,7 +674,7 @@ window.submitAnn = async function() {
       isApproved ? fetch(window.__ACTIVITY_URL ?? "/api/activity", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "message_posted",
+          type: "conversation_message_posted",
           actor: authorName,
           description: `${authorName} posted a new announcement: "${title.slice(0, 60)}"`,
           metadata: { deepLink: { appId: APP_ID, params: { announcementId: id } } },
@@ -775,10 +811,24 @@ window.approveAnn = async function(id) {
 
   try {
     const now = new Date().toISOString();
-    await db(
-      `INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, ?)`,
+    // OR IGNORE + a changed-count gate: `announcement_id` is the approvals
+    // primary key, so a second moderator clicking Approve on the same item used
+    // to hit a constraint error — and before that fix landed, whoever won still
+    // sent the whole fan-out again. Two moderators approving together meant two
+    // notifications, two inbox messages, and two charges against the household's
+    // daily email quota. Only the moderator whose INSERT actually created the
+    // row announces it.
+    const { changed } = await db(
+      `INSERT OR IGNORE INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, ?)`,
       [id, ME?.id ?? "system", now]
     );
+    if (!changed) {
+      await loadAnnouncements();
+      closeModal();
+      switchTab("active");
+      render();
+      return;
+    }
 
     await Promise.all([
       loadAnnouncements(),
@@ -795,7 +845,7 @@ window.approveAnn = async function(id) {
       fetch(window.__ACTIVITY_URL ?? "/api/activity", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "message_posted",
+          type: "conversation_message_posted",
           actor: ME?.name ?? "Admin",
           description: `${ann.author_name} posted a new announcement: "${ann.title.slice(0, 60)}"`,
           metadata: { deepLink: { appId: APP_ID, params: { announcementId: id } } },
@@ -827,8 +877,14 @@ window.deleteAnn = async function(id) {
   });
   if (!confirmed) return;
 
-  await db(`DELETE FROM app_announcements__approvals WHERE announcement_id = ?`, [id]);
-  await db(`DELETE FROM app_announcements__announcements WHERE id = ?`, [id]);
+  // One transaction: as two requests, a failure between them left the approval
+  // row behind — and the `inherit_visibility` policy on `approvals` resolves
+  // through a parent that no longer exists, so the orphan was unreachable and
+  // undeletable from the app.
+  await dbBatch([
+    { sql: `DELETE FROM app_announcements__approvals WHERE announcement_id = ?`, params: [id] },
+    { sql: `DELETE FROM app_announcements__announcements WHERE id = ?`, params: [id] },
+  ]);
   await loadAnnouncements();
   closeModal();
   render();
