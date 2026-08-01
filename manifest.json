@@ -80,6 +80,108 @@
       "require_group_setting": { "settings_table": "settings", "settings_key": "moderator_group_id" }
     }
   },
+  "automation_actions": {
+    "post": {
+      "title": "Post an announcement (already approved)",
+      "description": "Post a notice that goes live immediately when another app's event fires. Use this for things nobody should have to wait on — a storm activation, an emergency check-in.",
+      "params": {
+        "title": { "type": "text", "label": "Title", "required": true },
+        "body": { "type": "text", "label": "Body", "required": true },
+        "days": { "type": "integer", "label": "Expires after (days)", "default": 14, "min": 1 },
+        "is_critical": { "type": "boolean", "label": "Mark as critical", "default": false }
+      },
+      "dedupe": { "table": "announcements", "column": "source_event_id" },
+      "steps": [
+        {
+          "op": "insert",
+          "table": "announcements",
+          "values": {
+            "id": "$uuid",
+            "title": ":title",
+            "body": ":body",
+            "status": "approved",
+            "author_id": "automation",
+            "author_name": "Automation",
+            "is_critical": ":is_critical",
+            "expires_at": "$now_plus_days(:days)",
+            "created_at": "$now",
+            "updated_at": "$now",
+            "source_event_id": "$event_id"
+          }
+        },
+        {
+          "op": "lookup",
+          "table": "announcements",
+          "where": { "source_event_id": "$event_id" },
+          "bind": { "announcement_id": "id" },
+          "on_missing": "error"
+        },
+        {
+          "op": "insert",
+          "table": "approvals",
+          "values": {
+            "announcement_id": ":announcement_id",
+            "approved_by": "automation",
+            "approved_at": "$now"
+          }
+        }
+      ]
+    },
+    "post_for_approval": {
+      "title": "Submit an announcement for approval",
+      "description": "Queue a notice for a moderator to approve, exactly as a member's own submission would be. Use this when the event is worth telling people about but not worth bypassing review.",
+      "params": {
+        "title": { "type": "text", "label": "Title", "required": true },
+        "body": { "type": "text", "label": "Body", "required": true },
+        "days": { "type": "integer", "label": "Expires after (days)", "default": 14, "min": 1 }
+      },
+      "dedupe": { "table": "announcements", "column": "source_event_id" },
+      "steps": [
+        {
+          "op": "insert",
+          "table": "announcements",
+          "values": {
+            "id": "$uuid",
+            "title": ":title",
+            "body": ":body",
+            "status": "pending",
+            "author_id": "automation",
+            "author_name": "Automation",
+            "expires_at": "$now_plus_days(:days)",
+            "created_at": "$now",
+            "updated_at": "$now",
+            "source_event_id": "$event_id"
+          }
+        }
+      ]
+    }
+  },
+  "suggested_automations": [
+    {
+      "title": "Announce a storm activation immediately",
+      "description": "Activating the emergency plan posts a critical announcement straight away — this is the case where waiting for a moderator to log in is the wrong behaviour.",
+      "trigger_event": "emergency.storm_activated",
+      "target_app_id": "announcements",
+      "action_id": "post",
+      "param_map": {
+        "title": { "kind": "payload_field", "value": "title" },
+        "body": { "kind": "const", "value": "The emergency plan has been activated. Open the emergency app to check in and see resources." },
+        "days": { "kind": "const", "value": 7 },
+        "is_critical": { "kind": "const", "value": true }
+      }
+    },
+    {
+      "title": "Submit an announcement when a survey opens",
+      "description": "A new survey queues a notice for approval rather than posting itself, so routine traffic still passes a moderator.",
+      "trigger_event": "survey.created",
+      "target_app_id": "announcements",
+      "action_id": "post_for_approval",
+      "param_map": {
+        "title": { "kind": "payload_field", "value": "title" },
+        "body": { "kind": "const", "value": "A new survey is open. Add your answers when you get a moment." }
+      }
+    }
+  ],
   "nav": {
     "label": "Announcements"
   },
