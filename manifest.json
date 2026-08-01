@@ -71,7 +71,9 @@
   },
   "publish_acls": {
     "announcement.submitted": { "require_role": "adult" },
-    "announcement.approved":  { "require_role": "adult" }
+    "announcement.approved":  {
+      "require_group_setting": { "settings_table": "settings", "settings_key": "moderator_group_id" }
+    }
   },
   "notification_acls": {
     "send": {
