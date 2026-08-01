@@ -49,3 +49,13 @@ export function formatExpiryDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
+
+/**
+ * Fields the in-app search matches against (see hub-sdk `searchMatch`).
+ * The body and the author both count — an announcement is looked up
+ * by what it said and who posted it, which is what people remember
+ * weeks later rather than the headline.
+ */
+export function searchableFields(item) {
+  return [item.title, item.body, item.author_name];
+}

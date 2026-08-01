@@ -8,7 +8,7 @@ import {
   esc,
   initial,
   isAdult,
-  canModerate,
+  canModerate, searchableFields,
 } from "../src/logic.js";
 import { testPrivilegedGateContract } from "./helpers/privileged-gate.mjs";
 
@@ -168,5 +168,15 @@ describe("isAdult", () => {
   });
   it("returns false for null", () => {
     expect(isAdult(null)).toBe(false);
+  });
+});
+
+describe("searchableFields", () => {
+  it("matches on the body and the author, not just the headline", () => {
+    const fields = searchableFields({
+      title: "Pool closed", body: "resurfacing until the 14th", author_name: "Ada",
+    });
+    expect(fields).toContain("resurfacing until the 14th");
+    expect(fields).toContain("Ada");
   });
 });

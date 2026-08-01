@@ -237,6 +237,13 @@
       background: var(--text); color: #fff; font-size: 0.85rem; line-height: 1.4;
       box-shadow: 0 4px 14px rgba(0,0,0,.18); z-index: 60; text-align: center;
     }
+    .search-row { margin-bottom: 12px; }
+    .search-input {
+      width: 100%; border: 1.5px solid var(--border-mid, var(--border, #d1d5db));
+      border-radius: 8px; padding: 9px 11px; font: inherit;
+      background: var(--surface, var(--card, #fff)); color: var(--text, inherit);
+    }
+    .search-input:focus { outline: none; border-color: var(--accent, #6366f1); }
   </style>
 </head>
 <body>
@@ -256,12 +263,15 @@
     <button class="tab"        data-tab="archived"  onclick="switchTab('archived')">Archived</button>
   </div>
   <div id="mod-notice"></div>
+  <div class="search-row" id="search-row" style="display:none">
+    <input id="search" class="search-input" type="search" placeholder="Search announcements…" aria-label="Search announcements" />
+  </div>
   <div id="list"></div>
 </div>
 
 <script type="module">
-import { hubAlert, memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate } from "/hub-sdk.js";
-import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate } from "./logic.js";
+import { hubAlert, memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate, searchMatch } from "/hub-sdk.js";
+import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate, searchableFields } from "./logic.js";
 
 const CONTEXT          = window.__CONTEXT_URL    ?? "";
 const DB               = window.__DB_URL         ?? "";
@@ -279,6 +289,7 @@ let modGroupId       = null;
 let announcements    = [];
 let acknowledgements = [];
 let currentTab       = "active";
+let searchQ = "";       // in-app search (see logic.js searchableFields)
 let modalEl          = null;
 
 // Returns true if the current member may moderate announcements
@@ -399,6 +410,11 @@ function statusBadge(status) {
 }
 
 function filteredList() {
+  const scoped = scopedList();
+  return searchQ ? scoped.filter(a => searchMatch(searchQ, searchableFields(a))) : scoped;
+}
+
+function scopedList() {
   if (currentTab === "active") {
     return sortAnnouncements(announcements.filter(a => a.status === "approved"));
   }
@@ -457,6 +473,12 @@ function renderModNotice(pendingCount) {
   }
 }
 
+document.addEventListener("input", (e) => {
+  if (e.target.id !== "search") return;
+  searchQ = e.target.value;
+  render();  // render() only rewrites #list, so the search box keeps focus
+});
+
 function render() {
   // Update pending badge
   const pendingCount = announcements.filter(a => a.status === "pending").length;
@@ -485,11 +507,19 @@ function render() {
     pendingTab.style.color = currentTab !== "pending" ? "var(--amber)" : "";
   }
 
+  // The box is only worth showing once this tab has something to search.
+  const searchRow = document.getElementById("search-row");
+  if (searchRow) searchRow.style.display = scopedList().length ? "" : "none";
+
   const items = filteredList();
   const listEl = document.getElementById("list");
   if (!listEl) return;
 
   if (items.length === 0) {
+    if (searchQ) {
+      listEl.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><p>Nothing matches "${esc(searchQ)}".</p></div>`;
+      return;
+    }
     const msgs = {
       active:   { icon: "📢", text: "No active announcements." },
       pending:  { icon: "⏳", text: canModerate() ? "No pending announcements." : "You have no pending submissions." },
