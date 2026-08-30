@@ -251,22 +251,22 @@
   <div class="page-header">
     <h1>📢 Announcements</h1>
     <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn btn-ghost" id="settings-btn" style="display:none" onclick="openModSettingsModal()">⚙️</button>
-      <button class="btn btn-primary" id="post-btn" onclick="openSubmitModal()">Post Announcement</button>
+      <button class="btn btn-ghost" id="settings-btn" data-testid="settings" style="display:none" onclick="openModSettingsModal()">⚙️</button>
+      <button class="btn btn-primary" id="post-btn" data-testid="post-announcement" onclick="openSubmitModal()">Post Announcement</button>
     </div>
   </div>
   <div class="tabs">
-    <button class="tab active" data-tab="active"    onclick="switchTab('active')">Active <span id="critical-badge" class="badge" style="display:none;background:var(--red)"></span></button>
-    <button class="tab"        data-tab="pending"   onclick="switchTab('pending')" id="pending-tab">
-      Pending <span id="pending-badge" class="badge" style="display:none"></span>
+    <button class="tab active" data-tab="active"    data-testid="tab-active"   onclick="switchTab('active')">Active <span id="critical-badge" data-testid="critical-badge" class="badge" style="display:none;background:var(--red)"></span></button>
+    <button class="tab"        data-tab="pending"   data-testid="tab-pending"  onclick="switchTab('pending')" id="pending-tab">
+      Pending <span id="pending-badge" data-testid="pending-badge" class="badge" style="display:none"></span>
     </button>
-    <button class="tab"        data-tab="archived"  onclick="switchTab('archived')">Archived</button>
+    <button class="tab"        data-tab="archived"  data-testid="tab-archived" onclick="switchTab('archived')">Archived</button>
   </div>
-  <div id="mod-notice"></div>
+  <div id="mod-notice" data-testid="mod-notice"></div>
   <div class="search-row" id="search-row" style="display:none">
-    <input id="search" class="search-input" type="search" placeholder="Search announcements…" aria-label="Search announcements" />
+    <input id="search" data-testid="search" class="search-input" type="search" placeholder="Search announcements…" aria-label="Search announcements" />
   </div>
-  <div id="list"></div>
+  <div id="list" data-testid="list"></div>
 </div>
 
 <script type="module">
@@ -406,7 +406,7 @@ function memberName(id) {
 
 function statusBadge(status) {
   const labels = { pending: "Pending", approved: "Active", archived: "Archived" };
-  return `<span class="status-badge status-${esc(status)}">${labels[status] ?? esc(status)}</span>`;
+  return `<span class="status-badge status-${esc(status)}" data-testid="status-badge" data-status="${esc(status)}">${labels[status] ?? esc(status)}</span>`;
 }
 
 function filteredList() {
@@ -517,7 +517,7 @@ function render() {
 
   if (items.length === 0) {
     if (searchQ) {
-      listEl.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div><p>Nothing matches "${esc(searchQ)}".</p></div>`;
+      listEl.innerHTML = `<div class="empty" data-testid="empty-state"><div class="empty-icon">🔍</div><p>Nothing matches "${esc(searchQ)}".</p></div>`;
       return;
     }
     const msgs = {
@@ -526,7 +526,7 @@ function render() {
       archived: { icon: "📁", text: "No archived announcements." },
     };
     const { icon, text } = msgs[currentTab];
-    listEl.innerHTML = `<div class="empty"><div class="empty-icon">${icon}</div><p>${text}</p></div>`;
+    listEl.innerHTML = `<div class="empty" data-testid="empty-state"><div class="empty-icon">${icon}</div><p>${text}</p></div>`;
     return;
   }
 
@@ -549,30 +549,30 @@ function renderCard(ann) {
     : "";
 
   const ackIndicator = needsAck
-    ? `<span style="font-size:0.75rem;color:var(--red);font-weight:600;margin-left:auto">Requires acknowledgement</span>`
-    : (acked ? `<span style="font-size:0.75rem;color:var(--green);font-weight:600;margin-left:auto">✓ Acknowledged</span>` : "");
+    ? `<span data-testid="ack-indicator" data-acked="0" style="font-size:0.75rem;color:var(--red);font-weight:600;margin-left:auto">Requires acknowledgement</span>`
+    : (acked ? `<span data-testid="ack-indicator" data-acked="1" style="font-size:0.75rem;color:var(--green);font-weight:600;margin-left:auto">✓ Acknowledged</span>` : "");
 
   const cardBorder = needsAck ? `style="border-color:#fca5a5;border-width:2px"` : "";
 
   const adminActions = canModerate() ? `
     <div class="ann-actions">
-      ${ann.status === "pending" ? `<button class="btn btn-success btn-xs" data-action="approve" data-id="${esc(ann.id)}">Approve</button>` : ""}
+      ${ann.status === "pending" ? `<button class="btn btn-success btn-xs" data-testid="approve" data-action="approve" data-id="${esc(ann.id)}">Approve</button>` : ""}
       <span class="ann-actions-spacer"></span>
-      <button class="btn btn-danger btn-xs" data-action="delete" data-id="${esc(ann.id)}">Delete</button>
+      <button class="btn btn-danger btn-xs" data-testid="delete" data-action="delete" data-id="${esc(ann.id)}">Delete</button>
     </div>` : "";
 
   return `
-    <div class="ann-card" data-action="open" data-id="${esc(ann.id)}" ${cardBorder}>
+    <div class="ann-card" data-testid="ann-card" data-announcement-id="${esc(ann.id)}" data-status="${esc(effStatus)}" data-action="open" data-id="${esc(ann.id)}" ${cardBorder}>
       <div class="ann-card-inner">
         <div class="ann-header">
-          <div class="ann-title">${esc(ann.title)}</div>
+          <div class="ann-title" data-testid="ann-title">${esc(ann.title)}</div>
           <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
             ${criticalBadge}
             ${statusBadge(effStatus)}
           </div>
         </div>
-        <div class="ann-body">${esc(ann.body)}</div>
-        <div class="ann-meta">
+        <div class="ann-body" data-testid="ann-body">${esc(ann.body)}</div>
+        <div class="ann-meta" data-testid="ann-meta">
           <span>By ${esc(ann.author_name)}</span>
           <span class="ann-meta-dot">${expiryLabel}</span>
           <span class="ann-meta-dot">${formatRelativeDate(ann.created_at)}</span>
@@ -585,11 +585,13 @@ function renderCard(ann) {
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 
-function openModal(html) {
+// `testid` names the dialog — submit, detail and moderator settings are all
+// `.modal`, so a scenario has to be able to wait on the one it just opened.
+function openModal(html, testid) {
   closeModal();
   modalEl = document.createElement("div");
   modalEl.className = "modal-backdrop";
-  modalEl.innerHTML = `<div class="modal">${html}</div>`;
+  modalEl.innerHTML = `<div class="modal"${testid ? ` data-testid="${testid}"` : ""}>${html}</div>`;
   modalEl.addEventListener("click", e => { if (e.target === modalEl) closeModal(); });
   document.body.appendChild(modalEl);
 }
@@ -614,36 +616,36 @@ function openSubmitModal() {
       <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px">${hint}</p>
       <div class="form-group">
         <label for="f-title">Title</label>
-        <input id="f-title" type="text" maxlength="120" placeholder="Announcement title…" autocomplete="off" />
+        <input id="f-title" data-testid="field-title" type="text" maxlength="120" placeholder="Announcement title…" autocomplete="off" />
       </div>
       <div class="form-group">
         <label for="f-body">Description</label>
-        <textarea id="f-body" rows="4" maxlength="1000" placeholder="What do you want to announce?"></textarea>
+        <textarea id="f-body" data-testid="field-body" rows="4" maxlength="1000" placeholder="What do you want to announce?"></textarea>
       </div>
       <div class="form-group">
         <label for="f-expires">Expires on</label>
-        <input id="f-expires" type="date" value="${expiry}" min="${new Date().toISOString().slice(0,10)}" />
+        <input id="f-expires" data-testid="field-expires" type="date" value="${expiry}" min="${new Date().toISOString().slice(0,10)}" />
         <p class="form-hint">After this date the announcement will be archived automatically.</p>
       </div>
       <div class="form-group">
         <div class="toggle-row" onclick="document.getElementById('f-critical').click();event.stopPropagation()">
-          <input id="f-critical" type="checkbox" onclick="event.stopPropagation()" />
+          <input id="f-critical" data-testid="field-critical" type="checkbox" onclick="event.stopPropagation()" />
           <label for="f-critical" onclick="event.stopPropagation()">Mark as Critical</label>
           <span class="toggle-hint">Members must acknowledge this announcement</span>
         </div>
       </div>
       <div class="form-group">
         <div class="toggle-row" onclick="document.getElementById('f-email').click();event.stopPropagation()">
-          <input id="f-email" type="checkbox" onclick="event.stopPropagation()" />
+          <input id="f-email" data-testid="field-email" type="checkbox" onclick="event.stopPropagation()" />
           <label for="f-email" onclick="event.stopPropagation()">Also email everyone</label>
           <span class="toggle-hint">Sends to each member's inbox once approved (premium households)</span>
         </div>
       </div>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="submitAnn()">${label}</button>
-    </div>`);
+      <button class="btn btn-ghost" data-testid="submit-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" data-testid="submit-save" onclick="submitAnn()">${label}</button>
+    </div>`, "submit-modal");
 
   setTimeout(() => document.getElementById("f-title")?.focus(), 50);
 }
@@ -746,15 +748,15 @@ window.openDetail = function(id) {
   if (isCritical && effStatus === "approved") {
     if (acked) {
       criticalSection = `
-        <div class="ack-banner" style="background:var(--green-light);border-color:#6ee7b7">
+        <div class="ack-banner" data-testid="ack-banner" data-acked="1" style="background:var(--green-light);border-color:#6ee7b7">
           <p style="color:var(--green)">✓ You acknowledged this announcement</p>
           <span class="ack-done">${ackedAt ? formatRelativeDate(ackedAt) : ""}</span>
         </div>`;
     } else {
       criticalSection = `
-        <div class="ack-banner">
+        <div class="ack-banner" data-testid="ack-banner" data-acked="0">
           <p>🚨 This is a critical announcement. Please acknowledge that you have read it.</p>
-          <button class="btn btn-danger btn-sm" data-action="ack" data-id="${esc(id)}">Acknowledge</button>
+          <button class="btn btn-danger btn-sm" data-testid="acknowledge" data-action="ack" data-id="${esc(id)}">Acknowledge</button>
         </div>`;
     }
   } else if (isCritical) {
@@ -762,21 +764,21 @@ window.openDetail = function(id) {
   }
 
   const adminAckSection = (canModerate() && isCritical && effStatus === "approved")
-    ? `<div style="margin-top:10px"><button class="btn btn-ghost btn-xs" data-action="acklist" data-id="${esc(id)}">View acknowledgements</button><div id="ack-list-${esc(id)}" class="ack-list"></div></div>`
+    ? `<div style="margin-top:10px"><button class="btn btn-ghost btn-xs" data-testid="view-acknowledgements" data-action="acklist" data-id="${esc(id)}">View acknowledgements</button><div id="ack-list-${esc(id)}" data-testid="ack-list" class="ack-list"></div></div>`
     : "";
 
   const adminButtons = canModerate() ? `
     <hr class="detail-divider"/>
     ${adminAckSection}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:${adminAckSection ? '10px' : '0'}">
-      ${ann.status === "pending" ? `<button class="btn btn-success btn-sm" data-action="approve" data-id="${esc(id)}">Approve</button>` : ""}
-      <button class="btn btn-danger btn-sm" data-action="delete" data-id="${esc(id)}">Delete</button>
+      ${ann.status === "pending" ? `<button class="btn btn-success btn-sm" data-testid="approve" data-action="approve" data-id="${esc(id)}">Approve</button>` : ""}
+      <button class="btn btn-danger btn-sm" data-testid="delete" data-action="delete" data-id="${esc(id)}">Delete</button>
     </div>` : "";
 
   openModal(`
     <div class="modal-header">
-      <h2 style="flex:1;min-width:0;padding-right:8px">${esc(ann.title)}</h2>
-      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2 style="flex:1;min-width:0;padding-right:8px" data-testid="detail-title">${esc(ann.title)}</h2>
+      <button class="modal-close" data-testid="detail-close" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-body">
       <div style="margin-bottom:10px">${statusBadge(effStatus)}</div>
@@ -785,9 +787,9 @@ window.openDetail = function(id) {
       ${approvedLine}
       <hr class="detail-divider"/>
       ${criticalSection}
-      <p class="detail-body">${esc(ann.body)}</p>
+      <p class="detail-body" data-testid="detail-body">${esc(ann.body)}</p>
       ${adminButtons}
-    </div>`);
+    </div>`, "detail-modal");
 };
 
 // ── Acknowledge ───────────────────────────────────────────────────────────────
@@ -934,7 +936,7 @@ window.openModSettingsModal = function() {
     <div class="modal-body">
       <div class="form-group">
         <label for="mod-group">Moderator Group</label>
-        <select id="mod-group">
+        <select id="mod-group" data-testid="field-mod-group">
           <option value="">— none (approvals disabled — no one can approve) —</option>
           ${groupOpts}
         </select>
@@ -942,9 +944,9 @@ window.openModSettingsModal = function() {
       </div>
     </div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="saveModSettings()">Save</button>
-    </div>`);
+      <button class="btn btn-ghost" data-testid="mod-settings-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" data-testid="mod-settings-save" onclick="saveModSettings()">Save</button>
+    </div>`, "mod-settings-modal");
 };
 
 window.saveModSettings = async function() {

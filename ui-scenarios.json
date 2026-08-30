@@ -1,0 +1,236 @@
+{
+  "scenarios": [
+    {
+      "name": "the pending queue renders only your own submissions, never another member's draft",
+      "members": {
+        "author": "adult",
+        "other": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at) VALUES (?, ?, ?, 'approved', ?, ?, '2099-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
+          "params": [
+            "ui-live",
+            "Pool closed for maintenance",
+            "Back on Monday.",
+            "{{author}}",
+            "Alex"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, '2026-01-02T00:00:00Z')",
+          "params": [
+            "ui-live",
+            "{{author}}"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at) VALUES (?, ?, ?, 'pending', ?, ?, '2099-01-01T00:00:00Z', '2026-01-03T00:00:00Z', '2026-01-03T00:00:00Z')",
+          "params": [
+            "ui-pending-author",
+            "Alex's draft notice",
+            "Still deciding the dates.",
+            "{{author}}",
+            "Alex"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at) VALUES (?, ?, ?, 'pending', ?, ?, '2099-01-01T00:00:00Z', '2026-01-04T00:00:00Z', '2026-01-04T00:00:00Z')",
+          "params": [
+            "ui-pending-other",
+            "Jamie's draft notice",
+            "Not ready to post this yet.",
+            "{{other}}",
+            "Jamie"
+          ]
+        },
+        {
+          "action": "open",
+          "as": "other"
+        },
+        {
+          "action": "expectText",
+          "as": "other",
+          "text": "Pool closed for maintenance",
+          "selector": "[data-testid=\"list\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "other",
+          "selector": "[data-testid=\"ann-card\"]",
+          "count": 1
+        },
+        {
+          "action": "click",
+          "as": "other",
+          "selector": "[data-testid=\"tab-pending\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "other",
+          "selector": "[data-testid=\"ann-card\"]",
+          "count": 1
+        },
+        {
+          "action": "expectText",
+          "as": "other",
+          "text": "Jamie's draft notice",
+          "selector": "[data-testid=\"list\"]"
+        },
+        {
+          "action": "expectNoText",
+          "as": "other",
+          "text": "Alex's draft notice"
+        },
+        {
+          "action": "open",
+          "as": "author"
+        },
+        {
+          "action": "click",
+          "as": "author",
+          "selector": "[data-testid=\"tab-pending\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "author",
+          "selector": "[data-testid=\"ann-card\"]",
+          "count": 1
+        },
+        {
+          "action": "expectText",
+          "as": "author",
+          "text": "Alex's draft notice",
+          "selector": "[data-testid=\"list\"]"
+        },
+        {
+          "action": "expectNoText",
+          "as": "author",
+          "text": "Jamie's draft notice"
+        }
+      ]
+    },
+    {
+      "name": "acknowledging a critical announcement is recorded for you alone",
+      "members": {
+        "reader": "adult",
+        "other": "adult"
+      },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical) VALUES (?, ?, ?, 'approved', ?, ?, '2099-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', 1)",
+          "params": [
+            "ui-critical",
+            "Water shutoff Tuesday",
+            "Main valve closed 9am to 3pm.",
+            "{{reader}}",
+            "Alex"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, '2026-01-02T00:00:00Z')",
+          "params": [
+            "ui-critical",
+            "{{reader}}"
+          ]
+        },
+        {
+          "action": "open",
+          "as": "reader"
+        },
+        {
+          "action": "expectText",
+          "as": "reader",
+          "text": "Water shutoff Tuesday",
+          "selector": "[data-testid=\"list\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "reader",
+          "selector": "[data-testid=\"ack-indicator\"][data-acked=\"0\"]",
+          "count": 1
+        },
+        {
+          "action": "click",
+          "as": "reader",
+          "selector": "[data-testid=\"ann-card\"][data-announcement-id=\"ui-critical\"]"
+        },
+        {
+          "action": "waitFor",
+          "as": "reader",
+          "selector": "[data-testid=\"detail-modal\"]"
+        },
+        {
+          "action": "waitFor",
+          "as": "reader",
+          "selector": "[data-testid=\"ack-banner\"][data-acked=\"0\"]"
+        },
+        {
+          "action": "click",
+          "as": "reader",
+          "selector": "[data-testid=\"acknowledge\"]"
+        },
+        {
+          "action": "expectText",
+          "as": "reader",
+          "text": "You acknowledged this announcement",
+          "selector": "[data-testid=\"detail-modal\"]"
+        },
+        {
+          "action": "waitFor",
+          "as": "reader",
+          "selector": "[data-testid=\"ack-banner\"][data-acked=\"1\"]"
+        },
+        {
+          "action": "click",
+          "as": "reader",
+          "selector": "[data-testid=\"detail-close\"]"
+        },
+        {
+          "action": "reload",
+          "as": "reader"
+        },
+        {
+          "action": "expectCount",
+          "as": "reader",
+          "selector": "[data-testid=\"ack-indicator\"][data-acked=\"1\"]",
+          "count": 1
+        },
+        {
+          "action": "expectCount",
+          "as": "reader",
+          "selector": "[data-testid=\"ack-indicator\"][data-acked=\"0\"]",
+          "count": 0
+        },
+        {
+          "action": "open",
+          "as": "other"
+        },
+        {
+          "action": "expectText",
+          "as": "other",
+          "text": "Water shutoff Tuesday",
+          "selector": "[data-testid=\"list\"]"
+        },
+        {
+          "action": "expectCount",
+          "as": "other",
+          "selector": "[data-testid=\"ack-indicator\"][data-acked=\"1\"]",
+          "count": 0
+        },
+        {
+          "action": "expectCount",
+          "as": "other",
+          "selector": "[data-testid=\"ack-indicator\"][data-acked=\"0\"]",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}
