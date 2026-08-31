@@ -26,18 +26,39 @@ export function canModerate(me, groups, moderatorGroupId) {
 
 const DEFAULT_EXPIRY_DAYS = 7;
 
-export function defaultExpiry() {
-  const d = new Date();
+/**
+ * Today as a bare `YYYY-MM-DD` on the viewer's own calendar. Never
+ * `toISOString().slice(0, 10)`: that is UTC, so west of Greenwich it names
+ * YESTERDAY for the whole evening.
+ *
+ * `expires_at` is a bare date — it comes straight off `<input type="date">` —
+ * so everything compared against it must be a bare date too. Comparing it to an
+ * instant is a lexical string compare in which "2026-08-30" sorts BEFORE
+ * "2026-08-30 14:22:00", which silently swallows the entire expiry day.
+ */
+export function todayDate(now = new Date()) {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function defaultExpiry(now = new Date()) {
+  const d = new Date(now);
   d.setDate(d.getDate() + DEFAULT_EXPIRY_DAYS);
-  return d.toISOString().slice(0, 10);
+  return todayDate(d);
 }
 
-export function isExpired(expiresAt) {
-  return new Date(expiresAt) < new Date();
+/**
+ * Expiry is INCLUSIVE of the day named: "Expires on the 30th" stays live all
+ * day on the 30th and archives when the 31st begins.
+ */
+export function isExpired(expiresAt, today = todayDate()) {
+  return String(expiresAt).slice(0, 10) < today;
 }
 
-export function effectiveStatus(ann) {
-  if (ann.status === "approved" && isExpired(ann.expires_at)) return "archived";
+export function effectiveStatus(ann, today = todayDate()) {
+  if (ann.status === "approved" && isExpired(ann.expires_at, today)) return "archived";
   return ann.status;
 }
 
@@ -46,8 +67,13 @@ export function sortAnnouncements(list) {
 }
 
 export function formatExpiryDate(iso) {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  // Built from parts, not `new Date(iso)`: a bare "YYYY-MM-DD" parses as UTC
+  // midnight, which renders as the PREVIOUS day west of Greenwich.
+  const [y, m, d] = String(iso).slice(0, 10).split("-").map(Number);
+  const dt = Number.isFinite(y) && Number.isFinite(m) && Number.isFinite(d)
+    ? new Date(y, m - 1, d)
+    : new Date(iso);
+  return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 /**

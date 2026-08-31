@@ -271,7 +271,7 @@
 
 <script type="module">
 import { hubAlert, memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate, searchMatch } from "/hub-sdk.js";
-import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate, searchableFields } from "./logic.js";
+import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, todayDate, canModerate as _canModerate, searchableFields } from "./logic.js";
 
 const CONTEXT          = window.__CONTEXT_URL    ?? "";
 const DB               = window.__DB_URL         ?? "";
@@ -363,7 +363,9 @@ async function loadSettings() {
 // ── Data loading ──────────────────────────────────────────────────────────────
 
 async function loadAnnouncements() {
-  const now = new Date().toISOString();
+  // A bare local date, not an instant: `expires_at` is a bare "YYYY-MM-DD", and
+  // comparing it to a timestamp is a lexical compare that loses the expiry day.
+  const today = todayDate();
   const { rows } = await db(
     `SELECT
        a.id, a.title, a.body, a.author_id, a.author_name, a.expires_at,
@@ -371,16 +373,16 @@ async function loadAnnouncements() {
        COALESCE(apr.approved_by, a.approved_by) AS approved_by,
        COALESCE(apr.approved_at, a.approved_at) AS approved_at,
        CASE
-         WHEN apr.announcement_id IS NOT NULL AND a.expires_at > ? THEN 'approved'
-         WHEN apr.announcement_id IS NOT NULL                       THEN 'archived'
-         WHEN a.expires_at <= ?                                     THEN 'archived'
+         WHEN apr.announcement_id IS NOT NULL AND a.expires_at >= ? THEN 'approved'
+         WHEN apr.announcement_id IS NOT NULL                        THEN 'archived'
+         WHEN a.expires_at < ?                                       THEN 'archived'
          WHEN a.status = 'approved'                                 THEN 'pending'
          ELSE a.status
        END AS status
      FROM app_announcements__announcements a
      LEFT JOIN app_announcements__approvals apr ON apr.announcement_id = a.id
      ORDER BY a.created_at DESC`,
-    [now, now]
+    [today, today]
   );
   announcements = rows ?? [];
 }
@@ -624,7 +626,7 @@ function openSubmitModal() {
       </div>
       <div class="form-group">
         <label for="f-expires">Expires on</label>
-        <input id="f-expires" data-testid="field-expires" type="date" value="${expiry}" min="${new Date().toISOString().slice(0,10)}" />
+        <input id="f-expires" data-testid="field-expires" type="date" value="${expiry}" min="${todayDate()}" />
         <p class="form-hint">After this date the announcement will be archived automatically.</p>
       </div>
       <div class="form-group">
@@ -1068,7 +1070,7 @@ async function publishEvent(type, subjectId, payload = {}) {
 function loadDemoData() {
   const now = new Date();
   const future = (days) => {
-    const d = new Date(now); d.setDate(d.getDate() + days); return d.toISOString().slice(0,10);
+    const d = new Date(now); d.setDate(d.getDate() + days); return todayDate(d);
   };
   const past = (days) => {
     const d = new Date(now); d.setDate(d.getDate() - days); return d.toISOString();

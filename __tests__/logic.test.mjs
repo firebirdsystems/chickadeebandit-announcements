@@ -5,6 +5,7 @@ import {
   effectiveStatus,
   sortAnnouncements,
   formatExpiryDate,
+  todayDate,
   esc,
   initial,
   isAdult,
@@ -31,12 +32,41 @@ describe("defaultExpiry", () => {
     expect(defaultExpiry()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it("returns a date approximately 7 days from now", () => {
-    const result = new Date(defaultExpiry());
-    const expected = new Date();
-    expected.setDate(expected.getDate() + 7);
-    const diffMs = Math.abs(result - expected);
-    expect(diffMs).toBeLessThan(24 * 60 * 60 * 1000); // within 1 day
+  it("returns exactly 7 days from today", () => {
+    // Compared as DATES, not as instants. The old form parsed the result with
+    // `new Date("2026-09-06")` — UTC midnight — and measured it against a local
+    // `new Date()`, so the gap exceeded 24h whenever the local time of day plus
+    // the UTC offset did. It only looked stable because `defaultExpiry` was
+    // itself UTC and the two errors cancelled.
+    const anchor = new Date(2026, 7, 30, 23, 30);   // local, late evening
+    expect(defaultExpiry(anchor)).toBe("2026-09-06");
+    expect(defaultExpiry(new Date(2026, 0, 1, 0, 30))).toBe("2026-01-08");
+  });
+
+  it("lands 7 days after today whatever the clock says", () => {
+    const seven = new Date(`${todayDate()}T00:00:00Z`);
+    seven.setUTCDate(seven.getUTCDate() + 7);
+    expect(defaultExpiry()).toBe(seven.toISOString().slice(0, 10));
+  });
+});
+
+// ── todayDate ─────────────────────────────────────────────────────────────────
+
+// Regression guards for the UTC-drift bug: `toISOString().slice(0, 10)` names
+// the WRONG calendar day for part of every day outside UTC. Both directions are
+// pinned so a revert fails wherever CI's TZ is set (under TZ=UTC there is
+// genuinely nothing to catch and both trivially hold).
+describe("todayDate", () => {
+  it("uses the LOCAL calendar day late in the evening (fails under UTC drift west of Greenwich)", () => {
+    expect(todayDate(new Date(2026, 0, 1, 23, 30))).toBe("2026-01-01");
+  });
+
+  it("uses the LOCAL calendar day early in the morning (fails under UTC drift east of Greenwich)", () => {
+    expect(todayDate(new Date(2026, 0, 2, 0, 30))).toBe("2026-01-02");
+  });
+
+  it("agrees with the platform's own local-date formatting", () => {
+    expect(todayDate()).toBe(new Date().toLocaleDateString("en-CA"));
   });
 });
 
@@ -45,6 +75,28 @@ describe("defaultExpiry", () => {
 describe("isExpired", () => {
   it("returns true for a past date", () => {
     expect(isExpired("2000-01-01")).toBe(true);
+  });
+
+  // The bug this replaces: `expires_at` (a bare date) was compared against an
+  // instant, a lexical compare in which "2026-08-30" sorts BEFORE
+  // "2026-08-30 14:22:00" — so an announcement vanished on the very day it was
+  // labelled "Expires <today>".
+  it("keeps the expiry day itself LIVE", () => {
+    expect(isExpired(todayDate())).toBe(false);
+  });
+
+  it("expires only once the next day begins", () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    expect(isExpired(todayDate(d))).toBe(true);
+  });
+
+  it("accepts a full ISO instant as well as a bare date", () => {
+    expect(isExpired(`${todayDate()}T00:00:00.000Z`)).toBe(false);
+  });
+
+  it("treats the freshly defaulted expiry as live", () => {
+    expect(isExpired(defaultExpiry())).toBe(false);
   });
 
   it("returns false for a future date", () => {
@@ -66,6 +118,11 @@ describe("effectiveStatus", () => {
     const future = new Date();
     future.setFullYear(future.getFullYear() + 1);
     const ann = { status: "approved", expires_at: future.toISOString().slice(0, 10) };
+    expect(effectiveStatus(ann)).toBe("approved");
+  });
+
+  it("returns 'approved' on the expiry day itself", () => {
+    const ann = { status: "approved", expires_at: todayDate() };
     expect(effectiveStatus(ann)).toBe("approved");
   });
 
@@ -117,6 +174,12 @@ describe("formatExpiryDate", () => {
     const result = formatExpiryDate("2025-12-25");
     expect(result).toContain("Dec");
     expect(result).toContain("25");
+  });
+
+  // `new Date("2025-12-25")` is UTC midnight and renders as Dec 24 west of
+  // Greenwich; the label must name the day the author picked.
+  it("names the exact day picked, not the UTC-shifted one", () => {
+    expect(formatExpiryDate("2025-12-25")).toContain("Dec 25");
   });
 });
 
