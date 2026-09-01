@@ -270,8 +270,8 @@
 </div>
 
 <script type="module">
-import { hubAlert, memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate, searchMatch } from "/hub-sdk.js";
-import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, todayDate, canModerate as _canModerate, searchableFields } from "./logic.js";
+import { hubAlert, memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate, searchMatch, hubToday} from "/hub-sdk.js";
+import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate, searchableFields } from "./logic.js";
 
 const CONTEXT          = window.__CONTEXT_URL    ?? "";
 const DB               = window.__DB_URL         ?? "";
@@ -365,7 +365,7 @@ async function loadSettings() {
 async function loadAnnouncements() {
   // A bare local date, not an instant: `expires_at` is a bare "YYYY-MM-DD", and
   // comparing it to a timestamp is a lexical compare that loses the expiry day.
-  const today = todayDate();
+  const today = hubToday();
   const { rows } = await db(
     `SELECT
        a.id, a.title, a.body, a.author_id, a.author_name, a.expires_at,
@@ -536,8 +536,14 @@ function render() {
 }
 
 function renderCard(ann) {
-  const effStatus = effectiveStatus(ann);
-  const expired   = isExpired(ann.expires_at);
+  // The household's day, not the device's. `expires_at` is a bare "YYYY-MM-DD"
+  // chosen against the household calendar and expiry is INCLUSIVE of that day,
+  // so a device-local default would archive a live announcement several hours
+  // early for a member who is east of the household — or keep an expired one on
+  // screen for one who is west. logic.js keeps its own default so it stays pure
+  // and Node-testable; the household day is supplied here.
+  const effStatus = effectiveStatus(ann, hubToday());
+  const expired   = isExpired(ann.expires_at, hubToday());
   const expiryLabel = effStatus === "archived" || expired
     ? `Expired ${formatExpiryDate(ann.expires_at)}`
     : `Expires ${formatExpiryDate(ann.expires_at)}`;
@@ -603,7 +609,9 @@ function closeModal() { modalEl?.remove(); modalEl = null; }
 // ── Submit modal ──────────────────────────────────────────────────────────────
 
 function openSubmitModal() {
-  const expiry = defaultExpiry();
+  // Seeded from the household's day: this value is STORED as expires_at, and
+  // the field's own `min` below is already hubToday().
+  const expiry = defaultExpiry(new Date(`${hubToday()}T12:00:00`));
   const label  = canModerate() ? "Create Announcement" : "Post Announcement";
   const hint   = canModerate()
     ? "As a moderator, your announcement will be published immediately."
@@ -626,7 +634,7 @@ function openSubmitModal() {
       </div>
       <div class="form-group">
         <label for="f-expires">Expires on</label>
-        <input id="f-expires" data-testid="field-expires" type="date" value="${expiry}" min="${todayDate()}" />
+        <input id="f-expires" data-testid="field-expires" type="date" value="${expiry}" min="${hubToday()}" />
         <p class="form-hint">After this date the announcement will be archived automatically.</p>
       </div>
       <div class="form-group">
@@ -730,8 +738,8 @@ window.submitAnn = async function() {
 window.openDetail = function(id) {
   const ann = announcements.find(a => a.id === id);
   if (!ann) return;
-  const effStatus   = effectiveStatus(ann);
-  const expired     = isExpired(ann.expires_at);
+  const effStatus   = effectiveStatus(ann, hubToday());
+  const expired     = isExpired(ann.expires_at, hubToday());
   const expiryLabel = expired
     ? `Expired ${formatExpiryDate(ann.expires_at)}`
     : `Expires ${formatExpiryDate(ann.expires_at)}`;
@@ -1070,7 +1078,7 @@ async function publishEvent(type, subjectId, payload = {}) {
 function loadDemoData() {
   const now = new Date();
   const future = (days) => {
-    const d = new Date(now); d.setDate(d.getDate() + days); return todayDate(d);
+    const d = new Date(now); d.setDate(d.getDate() + days); return hubToday(d);
   };
   const past = (days) => {
     const d = new Date(now); d.setDate(d.getDate() - days); return d.toISOString();
