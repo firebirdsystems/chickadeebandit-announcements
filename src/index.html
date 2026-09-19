@@ -21,12 +21,12 @@
       --radius:       var(--hub-radius, 0.5rem);
       --shadow:       0 1px 3px rgba(0,0,0,.07);
       --shadow-md:    0 4px 12px rgba(0,0,0,.1);
-      --red:          #dc2626;
-      --red-light:    #fee2e2;
-      --green:        #059669;
-      --green-light:  #d1fae5;
-      --amber:        #d97706;
-      --amber-light:  #fef3c7;
+      --red:          var(--hub-tint-danger-fg, #dc2626);
+      --red-light:    var(--hub-tint-danger, #fee2e2);
+      --green:        var(--hub-tint-success-fg, #059669);
+      --green-light:  var(--hub-tint-success, #d1fae5);
+      --amber:        var(--hub-tint-warning-fg, #d97706);
+      --amber-light:  var(--hub-tint-warning, #fef3c7);
       --blue:         #2563eb;
       --blue-light:   #dbeafe;
     }
@@ -132,7 +132,7 @@
     }
     .status-pending  { background: var(--amber-light);  color: var(--amber); }
     .status-approved { background: var(--green-light);  color: var(--green); }
-    .status-archived { background: #f3f4f6;              color: var(--muted); }
+    .status-archived { background: var(--bg);              color: var(--muted); }
     .status-critical { background: var(--red-light);    color: var(--red); }
 
     /* Critical toggle */
@@ -234,7 +234,7 @@
     .toast {
       position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
       max-width: min(90vw, 420px); padding: 10px 16px; border-radius: 8px;
-      background: var(--text); color: #fff; font-size: 0.85rem; line-height: 1.4;
+      background: var(--text); color: var(--accent-fg); font-size: 0.85rem; line-height: 1.4;
       box-shadow: 0 4px 14px rgba(0,0,0,.18); z-index: 60; text-align: center;
     }
     .search-row { margin-bottom: 12px; }
