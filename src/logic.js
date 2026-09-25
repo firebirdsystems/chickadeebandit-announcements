@@ -62,6 +62,16 @@ export function effectiveStatus(ann, today = todayDate()) {
   return ann.status;
 }
 
+/**
+ * Whether the Share button is offered. The hub mints on any row but serves the
+ * page only while `visible_where` (status = "approved") holds, so a link on a
+ * pending or archived row would be dead on arrival.
+ */
+export function canShareAnnouncement(ann) {
+  // The STORED status, not effectiveStatus(): the hub never derives "archived" from expires_at.
+  return ann?.status === "approved";
+}
+
 export function sortAnnouncements(list) {
   return [...list].sort((a, b) => b.created_at.localeCompare(a.created_at));
 }

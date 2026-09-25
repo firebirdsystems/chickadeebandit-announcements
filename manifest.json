@@ -58,6 +58,17 @@
       "kind": "app_config"
     }
   },
+  "shareable": {
+    "announcement": {
+      "table": "announcements",
+      "title_column": "title",
+      "columns": [
+        { "column": "body", "label": "Announcement", "format": "multiline" },
+        { "column": "created_at", "label": "Posted", "format": "date" }
+      ],
+      "visible_where": { "column": "status", "values": ["approved"] }
+    }
+  },
   "admin_config": {
     "settings_table": "settings",
     "keys": ["moderator_group_id"]

@@ -270,8 +270,12 @@
 </div>
 
 <script type="module">
-import { hubAlert, memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate, searchMatch, hubToday} from "/hub-sdk.js";
-import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate, searchableFields } from "./logic.js";
+import {
+  hubAlert, memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate, searchMatch, hubToday,
+  createShareHelper, activeShareLinks, SHARE_EXPIRY_CHOICES, DEFAULT_SHARE_EXPIRY_HOURS,
+} from "/hub-sdk.js";
+import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate, searchableFields, canShareAnnouncement } from "./logic.js";
+import { createShareUi, createOverlayView } from "./share.js";
 
 const CONTEXT          = window.__CONTEXT_URL    ?? "";
 const DB               = window.__DB_URL         ?? "";
@@ -301,6 +305,31 @@ let modalEl          = null;
 function canModerate() {
   return _canModerate(ME, groups, modGroupId);
 }
+
+// External share links (manifest.shareable.announcement). The hub injects the
+// URLs only when the manifest declares `shareable`, and mints for adults only;
+// whether this household or space allows it at all is answered by the panel's
+// first read, which it reports rather than guessing here.
+const share = createShareHelper(window.__SHARE_CREATE_URL, window.__SHARE_REVOKE_URL, window.__SHARE_LIST_URL);
+const CAN_SHARE = share.enabled && isAdult(ME);
+const shareView = createOverlayView(document);
+const shareUi = createShareUi({
+  share,
+  itemType: "announcement",
+  noun: "announcement",
+  scopeHtml: () => "The page shows the announcement’s title, its text and the day it was posted. Who wrote it, who approved it and who has acknowledged it stay here. Anyone who gets the link can read it.",
+  esc,
+  confirm: (message, opts) => hubConfirm({ message, ...opts, destructive: true }),
+  writeText: (text) => navigator.clipboard.writeText(text),
+  activeLinks: activeShareLinks,
+  expiryChoices: SHARE_EXPIRY_CHOICES,
+  defaultExpiryHours: DEFAULT_SHARE_EXPIRY_HOURS,
+  getMe: () => ME,
+  isAdmin: () => hubAdmin,
+  memberName: (id) => members.find(m => m.id === id)?.name ?? "",
+  view: shareView,
+});
+shareView.bind(shareUi);
 
 // ── DB helper ─────────────────────────────────────────────────────────────────
 
@@ -562,11 +591,14 @@ function renderCard(ann) {
 
   const cardBorder = needsAck ? `style="border-color:#fca5a5;border-width:2px"` : "";
 
-  const adminActions = canModerate() ? `
+  const moderator = canModerate();
+  const shareable = CAN_SHARE && canShareAnnouncement(ann);
+  const adminActions = moderator || shareable ? `
     <div class="ann-actions">
-      ${ann.status === "pending" ? `<button class="btn btn-success btn-xs" data-testid="approve" data-action="approve" data-id="${esc(ann.id)}">Approve</button>` : ""}
+      ${moderator && ann.status === "pending" ? `<button class="btn btn-success btn-xs" data-testid="approve" data-action="approve" data-id="${esc(ann.id)}">Approve</button>` : ""}
+      ${shareable ? `<button class="btn btn-ghost btn-xs" data-testid="announcement-share" data-action="share" data-id="${esc(ann.id)}">Share</button>` : ""}
       <span class="ann-actions-spacer"></span>
-      <button class="btn btn-danger btn-xs" data-testid="delete" data-action="delete" data-id="${esc(ann.id)}">Delete</button>
+      ${moderator ? `<button class="btn btn-danger btn-xs" data-testid="delete" data-action="delete" data-id="${esc(ann.id)}">Delete</button>` : ""}
     </div>` : "";
 
   return `
@@ -1010,6 +1042,11 @@ document.addEventListener("click", (e) => {
     case "delete":  window.deleteAnn(id); break;
     case "ack":     window.acknowledgeAnn(id); break;
     case "acklist": window.loadAckList(id); break;
+    case "share": {
+      const ann = announcements.find(a => a.id === id);
+      if (ann) shareUi.open({ id: ann.id, title: ann.title });
+      break;
+    }
   }
 });
 
