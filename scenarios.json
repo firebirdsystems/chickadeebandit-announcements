@@ -90,6 +90,304 @@
           "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "email_everyone": 1 }] }
         }
       ]
+    },
+    {
+      "name": "a child's acknowledgement is stamped as themselves and they see only their own acknowledgements",
+      "members": { "kid": "child", "parent": "adult" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at) VALUES (?, ?, ?, 'approved', ?, ?, ?, ?, ?)",
+          "params": [
+            "ann1",
+            "Title ann1",
+            "Body",
+            "{{parent}}",
+            "Author",
+            "2099-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at) VALUES (?, ?, ?, 'approved', ?, ?, ?, ?, ?)",
+          "params": [
+            "ann2",
+            "Title ann2",
+            "Body",
+            "{{parent}}",
+            "Author",
+            "2099-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, ?)",
+          "params": ["ann1", "{{parent}}", "2026-01-02T00:00:00Z"]
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, ?)",
+          "params": ["ann2", "{{parent}}", "2026-01-03T00:00:00Z"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT announcement_id, member_id FROM app_announcements__acknowledgements",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [{ "announcement_id": "ann2", "member_id": "scn-kid" }]
+          }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "DELETE FROM app_announcements__acknowledgements WHERE announcement_id = ?",
+          "params": ["ann1"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "parent",
+          "sql": "SELECT announcement_id, member_id FROM app_announcements__acknowledgements ORDER BY announcement_id",
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [
+              { "announcement_id": "ann1", "member_id": "scn-parent" },
+              { "announcement_id": "ann2", "member_id": "scn-kid" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "a child reads a published announcement but cannot edit or delete another member's announcement",
+      "members": { "kid": "child", "parent": "adult" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at) VALUES (?, ?, ?, 'approved', ?, ?, ?, ?, ?)",
+          "params": [
+            "ann1",
+            "Title ann1",
+            "Body",
+            "{{parent}}",
+            "Author",
+            "2099-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "SELECT id FROM app_announcements__announcements",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "ann1" }] }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "UPDATE app_announcements__announcements SET title = ? WHERE id = ?",
+          "params": ["hijacked", "ann1"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "kid",
+          "sql": "DELETE FROM app_announcements__announcements WHERE id = ?",
+          "params": ["ann1"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "parent",
+          "sql": "SELECT id, title FROM app_announcements__announcements",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "ann1", "title": "Title ann1" }] }
+        }
+      ]
+    },
+    {
+      "name": "in a shared space only the steward sees every member's acknowledgements; a participant adult sees their own",
+      "context": "shared_space",
+      "members": { "a": "adult", "b": "adult", "steward": "admin" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at) VALUES (?, ?, ?, 'approved', ?, ?, ?, ?, ?)",
+          "params": [
+            "ann1",
+            "Title ann1",
+            "Body",
+            "{{steward}}",
+            "Author",
+            "2099-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, ?)",
+          "params": ["ann1", "{{a}}", "2026-01-02T00:00:00Z"]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, ?)",
+          "params": ["ann1", "{{b}}", "2026-01-02T00:00:00Z"]
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "SELECT member_id FROM app_announcements__acknowledgements",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "member_id": "scn-a" }] }
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "DELETE FROM app_announcements__acknowledgements WHERE member_id = ?",
+          "params": ["{{b}}"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "steward",
+          "sql": "SELECT member_id FROM app_announcements__acknowledgements ORDER BY member_id",
+          "expect": {
+            "status": 200,
+            "rowCount": 2,
+            "rowsContain": [{ "member_id": "scn-a" }, { "member_id": "scn-b" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "in a household every adult sees every member's acknowledgements",
+      "members": { "a": "adult", "b": "adult" },
+      "steps": [
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at) VALUES (?, ?, ?, 'approved', ?, ?, ?, ?, ?)",
+          "params": [
+            "ann1",
+            "Title ann1",
+            "Body",
+            "{{a}}",
+            "Author",
+            "2099-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, ?)",
+          "params": ["ann1", "{{b}}", "2026-01-02T00:00:00Z"]
+        },
+        {
+          "action": "db",
+          "as": "a",
+          "sql": "SELECT member_id FROM app_announcements__acknowledgements",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "member_id": "scn-b" }] }
+        }
+      ]
+    },
+    {
+      "name": "a moderator-group member approves and deletes another member's announcement; a plain adult outside the group cannot",
+      "members": { "moderator": "adult", "outsider": "adult", "author": "adult" },
+      "steps": [
+        { "action": "seedGroup", "group": "mods", "name": "Moderators", "members": ["moderator"] },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__settings (key, value) VALUES ('moderator_group_id', ?)",
+          "params": ["{{group:mods}}"]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)",
+          "params": [
+            "ann-a",
+            "Pool opens",
+            "Saturday",
+            "{{author}}",
+            "Author",
+            "2099-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z"
+          ]
+        },
+        {
+          "action": "seedRaw",
+          "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at) VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)",
+          "params": [
+            "ann-b",
+            "Spam",
+            "Buy now",
+            "{{author}}",
+            "Author",
+            "2099-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z",
+            "2026-01-01T00:00:00Z"
+          ]
+        },
+        {
+          "action": "db",
+          "as": "outsider",
+          "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, ?)",
+          "params": ["ann-a", "{{outsider}}", "2026-01-02T00:00:00Z"],
+          "expect": { "status": 403 }
+        },
+        {
+          "action": "db",
+          "as": "moderator",
+          "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, ?)",
+          "params": ["ann-a", "{{moderator}}", "2026-01-02T00:00:00Z"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "author",
+          "sql": "SELECT announcement_id, approved_by FROM app_announcements__approvals",
+          "expect": {
+            "status": 200,
+            "rowCount": 1,
+            "rowsContain": [{ "announcement_id": "ann-a", "approved_by": "scn-moderator" }]
+          }
+        },
+        {
+          "action": "db",
+          "as": "outsider",
+          "sql": "DELETE FROM app_announcements__announcements WHERE id = ?",
+          "params": ["ann-b"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "author",
+          "sql": "SELECT id FROM app_announcements__announcements WHERE id = ?",
+          "params": ["ann-b"],
+          "expect": { "status": 200, "rowCount": 1 }
+        },
+        {
+          "action": "db",
+          "as": "moderator",
+          "sql": "DELETE FROM app_announcements__announcements WHERE id = ?",
+          "params": ["ann-b"],
+          "expect": { "status": 200 }
+        },
+        {
+          "action": "db",
+          "as": "author",
+          "sql": "SELECT id FROM app_announcements__announcements ORDER BY id",
+          "expect": { "status": 200, "rowCount": 1, "rowsContain": [{ "id": "ann-a" }] }
+        }
+      ]
     }
   ]
 }
