@@ -169,7 +169,7 @@
     .empty {
       text-align: center; padding: 48px 16px; color: var(--muted);
     }
-    .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .empty-icon { margin-bottom: 12px; }
     .empty p { font-size: 0.9rem; }
 
     /* Modal */
@@ -249,9 +249,9 @@
 <body>
 <div class="app">
   <div class="page-header">
-    <h1>📢 Announcements</h1>
+    <h1><span id="page-glyph"></span> Announcements</h1>
     <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn btn-ghost" id="settings-btn" data-testid="settings" style="display:none" onclick="openModSettingsModal()">⚙️</button>
+      <button class="btn btn-ghost" id="settings-btn" data-testid="settings" style="display:none" aria-label="Moderator settings" onclick="openModSettingsModal()"></button>
       <button class="btn btn-primary" id="post-btn" data-testid="post-announcement" onclick="openSubmitModal()">Post Announcement</button>
     </div>
   </div>
@@ -272,10 +272,14 @@
 <script type="module">
 import {
   hubAlert, memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate, searchMatch, hubToday,
-  createShareHelper, activeShareLinks, SHARE_EXPIRY_CHOICES, DEFAULT_SHARE_EXPIRY_HOURS,
+  createShareHelper, activeShareLinks, glyph, chickadee, SHARE_EXPIRY_CHOICES, DEFAULT_SHARE_EXPIRY_HOURS,
 } from "/hub-sdk.js";
 import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate, searchableFields, canShareAnnouncement } from "./logic.js";
 import { createShareUi, createOverlayView } from "./share.js";
+
+// The page heading and settings button are static markup; their marks come from the SDK.
+document.getElementById("page-glyph").innerHTML = glyph("megaphone");
+document.getElementById("settings-btn").innerHTML = glyph("gear");
 
 const CONTEXT          = window.__CONTEXT_URL    ?? "";
 const DB               = window.__DB_URL         ?? "";
@@ -319,6 +323,7 @@ const shareUi = createShareUi({
   noun: "announcement",
   scopeHtml: () => "The page shows the announcement’s title, its text and the day it was posted. Who wrote it, who approved it and who has acknowledged it stay here. Anyone who gets the link can read it.",
   esc,
+  glyph,
   confirm: (message, opts) => hubConfirm({ message, ...opts, destructive: true }),
   writeText: (text) => navigator.clipboard.writeText(text),
   activeLinks: activeShareLinks,
@@ -548,16 +553,16 @@ function render() {
 
   if (items.length === 0) {
     if (searchQ) {
-      listEl.innerHTML = `<div class="empty" data-testid="empty-state"><div class="empty-icon">🔍</div><p>Nothing matches "${esc(searchQ)}".</p></div>`;
+      listEl.innerHTML = `<div class="empty" data-testid="empty-state"><div class="empty-icon">${chickadee("searching")}</div><p>Nothing matches "${esc(searchQ)}".</p></div>`;
       return;
     }
     const msgs = {
-      active:   { icon: "📢", text: "No active announcements." },
-      pending:  { icon: "⏳", text: canModerate() ? "No pending announcements." : "You have no pending submissions." },
-      archived: { icon: "📁", text: "No archived announcements." },
+      active:   { pose: "nest", text: "No active announcements." },
+      pending:  { pose: "sleeping", text: canModerate() ? "No pending announcements." : "You have no pending submissions." },
+      archived: { pose: "nest", text: "No archived announcements." },
     };
-    const { icon, text } = msgs[currentTab];
-    listEl.innerHTML = `<div class="empty" data-testid="empty-state"><div class="empty-icon">${icon}</div><p>${text}</p></div>`;
+    const { pose, text } = msgs[currentTab];
+    listEl.innerHTML = `<div class="empty" data-testid="empty-state"><div class="empty-icon">${chickadee(pose)}</div><p>${text}</p></div>`;
     return;
   }
 
@@ -582,12 +587,12 @@ function renderCard(ann) {
   const needsAck = isCritical && !acked && effStatus === "approved";
 
   const criticalBadge = isCritical
-    ? `<span class="status-badge status-critical" style="margin-left:6px">🚨 Critical</span>`
+    ? `<span class="status-badge status-critical" style="margin-left:6px">${glyph("siren", { accent: "currentColor" })} Critical</span>`
     : "";
 
   const ackIndicator = needsAck
     ? `<span data-testid="ack-indicator" data-acked="0" style="font-size:0.75rem;color:var(--red);font-weight:600;margin-left:auto">Requires acknowledgement</span>`
-    : (acked ? `<span data-testid="ack-indicator" data-acked="1" style="font-size:0.75rem;color:var(--green);font-weight:600;margin-left:auto">✓ Acknowledged</span>` : "");
+    : (acked ? `<span data-testid="ack-indicator" data-acked="1" style="font-size:0.75rem;color:var(--green);font-weight:600;margin-left:auto">${glyph("tick")} Acknowledged</span>` : "");
 
   const cardBorder = needsAck ? `style="border-color:#fca5a5;border-width:2px"` : "";
 
@@ -652,7 +657,7 @@ function openSubmitModal() {
   openModal(`
     <div class="modal-header">
       <h2>${label}</h2>
-      <button class="modal-close" onclick="closeModal()">✕</button>
+      <button class="modal-close" aria-label="Close" onclick="closeModal()">${glyph("close", { accent: "currentColor" })}</button>
     </div>
     <div class="modal-body">
       <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px">${hint}</p>
@@ -791,18 +796,18 @@ window.openDetail = function(id) {
     if (acked) {
       criticalSection = `
         <div class="ack-banner" data-testid="ack-banner" data-acked="1" style="background:var(--green-light);border-color:#6ee7b7">
-          <p style="color:var(--green)">✓ You acknowledged this announcement</p>
+          <p style="color:var(--green)">${glyph("tick")} You acknowledged this announcement</p>
           <span class="ack-done">${ackedAt ? formatRelativeDate(ackedAt) : ""}</span>
         </div>`;
     } else {
       criticalSection = `
         <div class="ack-banner" data-testid="ack-banner" data-acked="0">
-          <p>🚨 This is a critical announcement. Please acknowledge that you have read it.</p>
+          <p>${glyph("siren")} This is a critical announcement. Please acknowledge that you have read it.</p>
           <button class="btn btn-danger btn-sm" data-testid="acknowledge" data-action="ack" data-id="${esc(id)}">Acknowledge</button>
         </div>`;
     }
   } else if (isCritical) {
-    criticalSection = `<span class="status-badge status-critical" style="margin-bottom:10px;display:inline-flex">🚨 Critical</span>`;
+    criticalSection = `<span class="status-badge status-critical" style="margin-bottom:10px;display:inline-flex">${glyph("siren", { accent: "currentColor" })} Critical</span>`;
   }
 
   const adminAckSection = (canModerate() && isCritical && effStatus === "approved")
@@ -820,7 +825,7 @@ window.openDetail = function(id) {
   openModal(`
     <div class="modal-header">
       <h2 style="flex:1;min-width:0;padding-right:8px" data-testid="detail-title">${esc(ann.title)}</h2>
-      <button class="modal-close" data-testid="detail-close" onclick="closeModal()">✕</button>
+      <button class="modal-close" data-testid="detail-close" aria-label="Close" onclick="closeModal()">${glyph("close", { accent: "currentColor" })}</button>
     </div>
     <div class="modal-body">
       <div style="margin-bottom:10px">${statusBadge(effStatus)}</div>
@@ -972,8 +977,8 @@ window.openModSettingsModal = function() {
   ).join("");
   openModal(`
     <div class="modal-header">
-      <h2>⚙️ Moderator Settings</h2>
-      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2>${glyph("gear")} Moderator Settings</h2>
+      <button class="modal-close" aria-label="Close" onclick="closeModal()">${glyph("close", { accent: "currentColor" })}</button>
     </div>
     <div class="modal-body">
       <div class="form-group">

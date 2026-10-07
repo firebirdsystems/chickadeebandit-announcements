@@ -96,7 +96,7 @@
 </head>
 <body>
 <script type="module">
-import { esc, formatRelativeDate } from "/hub-sdk.js";
+import { esc, formatRelativeDate, glyph } from "/hub-sdk.js";
 
 const DB     = window.__DB_URL  ?? "";
 const APP_ID = window.__APP_ID  ?? "announcements";
@@ -135,7 +135,7 @@ async function load() {
 function render(items) {
   const header = `
     <div class="header">
-      <span class="header-title">📢 Announcements</span>
+      <span class="header-title">${glyph("megaphone")} Announcements</span>
       <span class="header-count">${items.length === 5 ? "Latest" : `${items.length} active`}</span>
     </div>`;
 
@@ -151,7 +151,7 @@ function render(items) {
         <a class="ann-row" href="/run/${APP_ID}?announcementId=${esc(a.id)}">
           <span class="ann-dot${a.is_critical ? ' critical' : ''}"></span>
           <div class="ann-main">
-            <div class="ann-title">${a.is_critical ? '🚨 ' : ''}${esc(a.title)}</div>
+            <div class="ann-title">${a.is_critical ? glyph("siren") + ' ' : ''}${esc(a.title)}</div>
             <div class="ann-meta">${esc(a.author_name)} · ${formatRelativeDate(a.created_at)}</div>
           </div>
         </a>`).join("")}
