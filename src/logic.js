@@ -1,4 +1,5 @@
 export { memberColor, initial, esc, isAdult, formatRelativeDate, AVATAR_COLORS } from "./shared.js";
+import { isAdult } from "./shared.js";
 
 /**
  * Whether `me` may moderate — approve/reject announcements and send the approval
@@ -22,6 +23,16 @@ export function canModerate(me, groups, moderatorGroupId) {
   if (!me || !moderatorGroupId) return false;
   const g = groups.find(g => g.id === moderatorGroupId);
   return !!g && g.memberIds.includes(me.id);
+}
+
+/**
+ * Whether a member may read who acknowledged a critical announcement. Mirrors
+ * the hub's rule for the acknowledgements table (owner_only): any adult in a
+ * household, and only the steward in a shared space. The moderator group plays
+ * no part in it, and everyone else reads their own acknowledgement alone.
+ */
+export function supervisesAcknowledgements(member, { tenantKind = "household", isAdmin = false } = {}) {
+  return tenantKind === "household" ? isAdult(member) : isAdmin === true;
 }
 
 const DEFAULT_EXPIRY_DAYS = 7;

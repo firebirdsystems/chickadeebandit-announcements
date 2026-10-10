@@ -9,7 +9,7 @@ import {
   esc,
   initial,
   isAdult,
-  canModerate, searchableFields,
+  canModerate, searchableFields, supervisesAcknowledgements,
 } from "../src/logic.js";
 import { testPrivilegedGateContract } from "./helpers/privileged-gate.mjs";
 
@@ -241,5 +241,27 @@ describe("searchableFields", () => {
     });
     expect(fields).toContain("resurfacing until the 14th");
     expect(fields).toContain("Ada");
+  });
+});
+
+// ── supervisesAcknowledgements ────────────────────────────────────────────────
+describe("supervisesAcknowledgements", () => {
+  const ADULT = { id: "a1", role: "adult" };
+  const CHILD = { id: "c1", role: "child" };
+  it("is every adult in a household, which is the default", () => {
+    expect(supervisesAcknowledgements(ADULT)).toBe(true);
+    expect(supervisesAcknowledgements(ADULT, { tenantKind: "household" })).toBe(true);
+  });
+  it("is never a child or nobody", () => {
+    expect(supervisesAcknowledgements(CHILD)).toBe(false);
+    expect(supervisesAcknowledgements(null)).toBe(false);
+  });
+  it("is not an adult who takes part in a shared space or a roster", () => {
+    expect(supervisesAcknowledgements(ADULT, { tenantKind: "shared_space", spaceKind: "general", isAdmin: false })).toBe(false);
+    expect(supervisesAcknowledgements(ADULT, { tenantKind: "shared_space", spaceKind: "roster", isAdmin: false })).toBe(false);
+  });
+  it("is the steward of a shared space or a roster", () => {
+    expect(supervisesAcknowledgements(ADULT, { tenantKind: "shared_space", spaceKind: "general", isAdmin: true })).toBe(true);
+    expect(supervisesAcknowledgements(ADULT, { tenantKind: "shared_space", spaceKind: "roster", isAdmin: true })).toBe(true);
   });
 });

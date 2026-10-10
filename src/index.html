@@ -274,7 +274,7 @@ import {
   hubAlert, memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate, searchMatch, hubToday,
   createShareHelper, activeShareLinks, glyph, chickadee, SHARE_EXPIRY_CHOICES, DEFAULT_SHARE_EXPIRY_HOURS,
 } from "/hub-sdk.js";
-import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate, searchableFields, canShareAnnouncement } from "./logic.js";
+import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate, searchableFields, canShareAnnouncement, supervisesAcknowledgements } from "./logic.js";
 import { createShareUi, createOverlayView } from "./share.js";
 
 // The page heading and settings button are static markup; their marks come from the SDK.
@@ -287,6 +287,11 @@ const APP_ID           = window.__APP_ID         ?? "announcements";
 const ME               = window.__CURRENT_MEMBER ?? null;
 const EVENTS_URL       = window.__EVENTS_URL     ?? "/api/events";
 const ADMIN_CONFIG_URL = window.__ADMIN_CONFIG_URL ?? "";
+
+// Where the app is running. Other members' acknowledgements are read by any
+// adult in a household and by the steward alone in a shared space.
+const TENANT = { tenantKind: window.__TENANT_KIND ?? "household", spaceKind: window.__SPACE_KIND ?? null, isAdmin: window.__IS_ADMIN === true };
+const READS_ACKS = supervisesAcknowledgements(ME, TENANT);
 
 // Hub-level admin — used only for settings UI (configuring the moderator group).
 const hubAdmin = ME?.isAdmin === true;
@@ -810,7 +815,7 @@ window.openDetail = function(id) {
     criticalSection = `<span class="status-badge status-critical" style="margin-bottom:10px;display:inline-flex">${glyph("siren", { accent: "currentColor" })} Critical</span>`;
   }
 
-  const adminAckSection = (canModerate() && isCritical && effStatus === "approved")
+  const adminAckSection = (READS_ACKS && isCritical && effStatus === "approved")
     ? `<div style="margin-top:10px"><button class="btn btn-ghost btn-xs" data-testid="view-acknowledgements" data-action="acklist" data-id="${esc(id)}">View acknowledgements</button><div id="ack-list-${esc(id)}" data-testid="ack-list" class="ack-list"></div></div>`
     : "";
 
