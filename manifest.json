@@ -7,7 +7,9 @@
   "runtime": "static",
   "storage": "db",
   "preload": {
-    "settings": {"sql": "SELECT value FROM app_announcements__settings WHERE key = 'moderator_group_id'"}
+    "settings": {"sql": "SELECT value FROM app_announcements__settings WHERE key = 'moderator_group_id'"},
+    "announcements": {"sql": "SELECT a.id, a.title, a.body, a.author_id, a.author_name, a.expires_at, a.created_at, a.updated_at, a.is_critical, a.email_everyone, COALESCE(apr.approved_by, a.approved_by) AS approved_by, COALESCE(apr.approved_at, a.approved_at) AS approved_at, CASE WHEN apr.announcement_id IS NOT NULL AND a.expires_at >= ? THEN 'approved' WHEN apr.announcement_id IS NOT NULL THEN 'archived' WHEN a.expires_at < ? THEN 'archived' WHEN a.status = 'approved' THEN 'pending' ELSE a.status END AS status FROM app_announcements__announcements a LEFT JOIN app_announcements__approvals apr ON apr.announcement_id = a.id ORDER BY a.created_at DESC", "params": [":today", ":today"]},
+    "acknowledgements": {"sql": "SELECT announcement_id, acknowledged_at FROM app_announcements__acknowledgements WHERE member_id = ?", "params": [":me"]}
   },
   "category": "general",
   "tags": ["announcements", "notices", "admin"],

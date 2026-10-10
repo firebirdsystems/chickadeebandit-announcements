@@ -1,0 +1,1659 @@
+{
+  "groups": [
+    {
+      "key": "moderators",
+      "name": "Moderators",
+      "members": [
+        "{{me}}",
+        "{{partner}}"
+      ]
+    }
+  ],
+  "seed": [
+    {
+      "sql": "INSERT INTO app_announcements__settings (key, value) VALUES (?, ?)",
+      "params": [
+        "moderator_group_id",
+        "{{group:moderators}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 days','+0 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 days','+0 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-01",
+        "Pool closed for maintenance",
+        "The pool will be closed Thursday and Friday while the filter is replaced. Back open Saturday morning.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:3}}",
+        1,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-1 days','+45 minutes'))",
+      "params": [
+        "perf-ann-01",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-4 days','-17 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-4 days','-17 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-02",
+        "Trash pickup moves to Wednesday",
+        "Because of the holiday, pickup shifts one day this week. Bins out Tuesday night.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:8}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-4 days','+28 minutes'))",
+      "params": [
+        "perf-ann-02",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-7 days','-34 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-7 days','-34 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-03",
+        "Family meeting Sunday at 6",
+        "We are going over the fall schedule and carpool plan. Bring your calendars.",
+        "pending",
+        "{{adult2}}",
+        "Perf Adult",
+        "{{date:13}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-10 days','-51 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-10 days','-51 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-04",
+        "Grandma visiting next weekend",
+        "She arrives Friday evening and stays through Monday. Guest room needs clearing by Thursday.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:18}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-10 days','-6 minutes'))",
+      "params": [
+        "perf-ann-04",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-13 days','-68 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-13 days','-68 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-05",
+        "New wifi password",
+        "The password changed today. Ask an adult for the new one; do not share it with guests, use the guest network.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:23}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-13 days','-23 minutes'))",
+      "params": [
+        "perf-ann-05",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-16 days','-85 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-16 days','-85 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-06",
+        "Power outage planned Tuesday",
+        "The utility is replacing a transformer. Power will be off from 9am to about 1pm. Charge devices the night before.",
+        "pending",
+        "{{adult2}}",
+        "Perf Adult",
+        "{{date:3}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-19 days','-102 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-19 days','-102 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-07",
+        "Lost: blue water bottle",
+        "Last seen at soccer practice. If you spot it, please put it on the kitchen counter.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:8}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-19 days','-57 minutes'))",
+      "params": [
+        "perf-ann-07",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-22 days','-119 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-22 days','-119 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-08",
+        "Carpool change this week",
+        "Mr. Okafor is driving Tuesday and Thursday instead of Monday and Wednesday.",
+        "pending",
+        "{{adult2}}",
+        "Perf Adult",
+        "{{date:13}}",
+        1,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-22 days','-74 minutes'))",
+      "params": [
+        "perf-ann-08",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','-136 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','-136 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-09",
+        "Dentist appointments booked",
+        "Everyone has a cleaning on the 14th. Times are on the calendar.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:18}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-25 days','-91 minutes'))",
+      "params": [
+        "perf-ann-09",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-28 days','-153 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-28 days','-153 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-10",
+        "Yard work day Saturday",
+        "Leaves, gutters and the garden beds. Starting at 9, pizza at noon.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:23}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-31 days','-170 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-31 days','-170 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-11",
+        "Furnace filter replaced",
+        "Next change is due in three months. The spare filters are on the garage shelf.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:3}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-31 days','-125 minutes'))",
+      "params": [
+        "perf-ann-11",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-34 days','-187 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-34 days','-187 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-12",
+        "School picture day",
+        "Picture day is Thursday. Order forms are on the fridge and due Wednesday.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:8}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-34 days','-142 minutes'))",
+      "params": [
+        "perf-ann-12",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-37 days','-204 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-37 days','-204 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-13",
+        "Smoke detector test tonight",
+        "They will beep for about a minute around 7pm. Nothing is wrong.",
+        "pending",
+        "{{adult2}}",
+        "Perf Adult",
+        "{{date:13}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-37 days','-159 minutes'))",
+      "params": [
+        "perf-ann-13",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-40 days','-221 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-40 days','-221 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-14",
+        "Dog walker starts Monday",
+        "Sam will come by at noon on weekdays. The side gate code is on the whiteboard.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:18}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-43 days','-238 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-43 days','-238 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-15",
+        "Holiday travel dates set",
+        "We leave on the 22nd and are back on the 29th. Details in Trip Planner.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:23}}",
+        1,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-43 days','-193 minutes'))",
+      "params": [
+        "perf-ann-15",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-46 days','-255 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-46 days','-255 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-16",
+        "Pool closed for maintenance (update)",
+        "The pool will be closed Thursday and Friday while the filter is replaced. Back open Saturday morning.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:3}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-46 days','-210 minutes'))",
+      "params": [
+        "perf-ann-16",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-49 days','-272 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-49 days','-272 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-17",
+        "Trash pickup moves to Wednesday (reminder)",
+        "Because of the holiday, pickup shifts one day this week. Bins out Tuesday night.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:8}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-49 days','-227 minutes'))",
+      "params": [
+        "perf-ann-17",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-52 days','-289 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-52 days','-289 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-18",
+        "Family meeting Sunday at 6 (follow-up)",
+        "We are going over the fall schedule and carpool plan. Bring your calendars.",
+        "pending",
+        "{{adult2}}",
+        "Perf Adult",
+        "{{date:13}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-55 days','-306 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-55 days','-306 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-19",
+        "Grandma visiting next weekend (update)",
+        "She arrives Friday evening and stays through Monday. Guest room needs clearing by Thursday.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-45}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-55 days','-261 minutes'))",
+      "params": [
+        "perf-ann-19",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-58 days','-323 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-58 days','-323 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-20",
+        "New wifi password (reminder)",
+        "The password changed today. Ask an adult for the new one; do not share it with guests, use the guest network.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-44}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-58 days','-278 minutes'))",
+      "params": [
+        "perf-ann-20",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-61 days','-340 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-61 days','-340 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-21",
+        "Power outage planned Tuesday (follow-up)",
+        "The utility is replacing a transformer. Power will be off from 9am to about 1pm. Charge devices the night before.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-43}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-61 days','-295 minutes'))",
+      "params": [
+        "perf-ann-21",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-64 days','-357 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-64 days','-357 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-22",
+        "Lost: blue water bottle (update)",
+        "Last seen at soccer practice. If you spot it, please put it on the kitchen counter.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-54}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-67 days','-374 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-67 days','-374 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-23",
+        "Carpool change this week (reminder)",
+        "Mr. Okafor is driving Tuesday and Thursday instead of Monday and Wednesday.",
+        "pending",
+        "{{adult2}}",
+        "Perf Adult",
+        "{{date:-53}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-67 days','-329 minutes'))",
+      "params": [
+        "perf-ann-23",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','-391 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','-391 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-24",
+        "Dentist appointments booked (follow-up)",
+        "Everyone has a cleaning on the 14th. Times are on the calendar.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-52}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-70 days','-346 minutes'))",
+      "params": [
+        "perf-ann-24",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-73 days','-408 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-73 days','-408 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-25",
+        "Yard work day Saturday (update)",
+        "Leaves, gutters and the garden beds. Starting at 9, pizza at noon.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-63}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-73 days','-363 minutes'))",
+      "params": [
+        "perf-ann-25",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-76 days','-425 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-76 days','-425 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-26",
+        "Furnace filter replaced (reminder)",
+        "Next change is due in three months. The spare filters are on the garage shelf.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-62}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-76 days','-380 minutes'))",
+      "params": [
+        "perf-ann-26",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-79 days','-442 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-79 days','-442 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-27",
+        "School picture day (follow-up)",
+        "Picture day is Thursday. Order forms are on the fridge and due Wednesday.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-61}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-79 days','-397 minutes'))",
+      "params": [
+        "perf-ann-27",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-82 days','-459 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-82 days','-459 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-28",
+        "Smoke detector test tonight (update)",
+        "They will beep for about a minute around 7pm. Nothing is wrong.",
+        "pending",
+        "{{adult2}}",
+        "Perf Adult",
+        "{{date:-72}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-82 days','-414 minutes'))",
+      "params": [
+        "perf-ann-28",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-85 days','-476 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-85 days','-476 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-29",
+        "Dog walker starts Monday (reminder)",
+        "Sam will come by at noon on weekdays. The side gate code is on the whiteboard.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-71}}",
+        1,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-85 days','-431 minutes'))",
+      "params": [
+        "perf-ann-29",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-88 days','-493 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-88 days','-493 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-30",
+        "Holiday travel dates set (follow-up)",
+        "We leave on the 22nd and are back on the 29th. Details in Trip Planner.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-70}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-88 days','-448 minutes'))",
+      "params": [
+        "perf-ann-30",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-91 days','-510 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-91 days','-510 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-31",
+        "Pool closed for maintenance (update)",
+        "The pool will be closed Thursday and Friday while the filter is replaced. Back open Saturday morning.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-81}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-91 days','-465 minutes'))",
+      "params": [
+        "perf-ann-31",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-94 days','-527 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-94 days','-527 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-32",
+        "Trash pickup moves to Wednesday (reminder)",
+        "Because of the holiday, pickup shifts one day this week. Bins out Tuesday night.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-80}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-94 days','-482 minutes'))",
+      "params": [
+        "perf-ann-32",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-97 days','-544 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-97 days','-544 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-33",
+        "Family meeting Sunday at 6 (follow-up)",
+        "We are going over the fall schedule and carpool plan. Bring your calendars.",
+        "pending",
+        "{{adult2}}",
+        "Perf Adult",
+        "{{date:-79}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-97 days','-499 minutes'))",
+      "params": [
+        "perf-ann-33",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-100 days','-561 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-100 days','-561 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-34",
+        "Grandma visiting next weekend (update)",
+        "She arrives Friday evening and stays through Monday. Guest room needs clearing by Thursday.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-90}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-100 days','-516 minutes'))",
+      "params": [
+        "perf-ann-34",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-103 days','-578 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-103 days','-578 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-35",
+        "New wifi password (reminder)",
+        "The password changed today. Ask an adult for the new one; do not share it with guests, use the guest network.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-89}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-103 days','-533 minutes'))",
+      "params": [
+        "perf-ann-35",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-106 days','-595 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-106 days','-595 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-36",
+        "Power outage planned Tuesday (follow-up)",
+        "The utility is replacing a transformer. Power will be off from 9am to about 1pm. Charge devices the night before.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-88}}",
+        1,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-106 days','-550 minutes'))",
+      "params": [
+        "perf-ann-36",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-109 days','-612 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-109 days','-612 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-37",
+        "Lost: blue water bottle (update)",
+        "Last seen at soccer practice. If you spot it, please put it on the kitchen counter.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-99}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-109 days','-567 minutes'))",
+      "params": [
+        "perf-ann-37",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-112 days','-629 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-112 days','-629 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-38",
+        "Carpool change this week (reminder)",
+        "Mr. Okafor is driving Tuesday and Thursday instead of Monday and Wednesday.",
+        "pending",
+        "{{adult2}}",
+        "Perf Adult",
+        "{{date:-98}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-112 days','-584 minutes'))",
+      "params": [
+        "perf-ann-38",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-115 days','-646 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-115 days','-646 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-39",
+        "Dentist appointments booked (follow-up)",
+        "Everyone has a cleaning on the 14th. Times are on the calendar.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-97}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-115 days','-601 minutes'))",
+      "params": [
+        "perf-ann-39",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-118 days','-663 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-118 days','-663 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-40",
+        "Yard work day Saturday (update)",
+        "Leaves, gutters and the garden beds. Starting at 9, pizza at noon.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-108}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-118 days','-618 minutes'))",
+      "params": [
+        "perf-ann-40",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-121 days','-680 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-121 days','-680 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-41",
+        "Furnace filter replaced (reminder)",
+        "Next change is due in three months. The spare filters are on the garage shelf.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-107}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-121 days','-635 minutes'))",
+      "params": [
+        "perf-ann-41",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-124 days','-697 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-124 days','-697 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-42",
+        "School picture day (follow-up)",
+        "Picture day is Thursday. Order forms are on the fridge and due Wednesday.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-106}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-124 days','-652 minutes'))",
+      "params": [
+        "perf-ann-42",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-127 days','-714 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-127 days','-714 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-43",
+        "Smoke detector test tonight (update)",
+        "They will beep for about a minute around 7pm. Nothing is wrong.",
+        "pending",
+        "{{adult2}}",
+        "Perf Adult",
+        "{{date:-117}}",
+        1,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-127 days','-669 minutes'))",
+      "params": [
+        "perf-ann-43",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-130 days','-731 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-130 days','-731 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-44",
+        "Dog walker starts Monday (reminder)",
+        "Sam will come by at noon on weekdays. The side gate code is on the whiteboard.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-116}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-130 days','-686 minutes'))",
+      "params": [
+        "perf-ann-44",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-133 days','-748 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-133 days','-748 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-45",
+        "Holiday travel dates set (follow-up)",
+        "We leave on the 22nd and are back on the 29th. Details in Trip Planner.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-115}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-133 days','-703 minutes'))",
+      "params": [
+        "perf-ann-45",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-136 days','-765 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-136 days','-765 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-46",
+        "Pool closed for maintenance (update)",
+        "The pool will be closed Thursday and Friday while the filter is replaced. Back open Saturday morning.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-126}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-136 days','-720 minutes'))",
+      "params": [
+        "perf-ann-46",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-139 days','-782 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-139 days','-782 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-47",
+        "Trash pickup moves to Wednesday (reminder)",
+        "Because of the holiday, pickup shifts one day this week. Bins out Tuesday night.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-125}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-139 days','-737 minutes'))",
+      "params": [
+        "perf-ann-47",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-142 days','-799 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-142 days','-799 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-48",
+        "Family meeting Sunday at 6 (follow-up)",
+        "We are going over the fall schedule and carpool plan. Bring your calendars.",
+        "pending",
+        "{{adult2}}",
+        "Perf Adult",
+        "{{date:-124}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-142 days','-754 minutes'))",
+      "params": [
+        "perf-ann-48",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-145 days','-816 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-145 days','-816 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-49",
+        "Grandma visiting next weekend (update)",
+        "She arrives Friday evening and stays through Monday. Guest room needs clearing by Thursday.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-135}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-145 days','-771 minutes'))",
+      "params": [
+        "perf-ann-49",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-148 days','-833 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-148 days','-833 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-50",
+        "New wifi password (reminder)",
+        "The password changed today. Ask an adult for the new one; do not share it with guests, use the guest network.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-134}}",
+        1,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-148 days','-788 minutes'))",
+      "params": [
+        "perf-ann-50",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-151 days','-850 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-151 days','-850 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-51",
+        "Power outage planned Tuesday (follow-up)",
+        "The utility is replacing a transformer. Power will be off from 9am to about 1pm. Charge devices the night before.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-133}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-151 days','-805 minutes'))",
+      "params": [
+        "perf-ann-51",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-154 days','-867 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-154 days','-867 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-52",
+        "Lost: blue water bottle (update)",
+        "Last seen at soccer practice. If you spot it, please put it on the kitchen counter.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-144}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-154 days','-822 minutes'))",
+      "params": [
+        "perf-ann-52",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-157 days','-884 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-157 days','-884 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-53",
+        "Carpool change this week (reminder)",
+        "Mr. Okafor is driving Tuesday and Thursday instead of Monday and Wednesday.",
+        "pending",
+        "{{adult2}}",
+        "Perf Adult",
+        "{{date:-143}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-157 days','-839 minutes'))",
+      "params": [
+        "perf-ann-53",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-160 days','-901 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-160 days','-901 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-54",
+        "Dentist appointments booked (follow-up)",
+        "Everyone has a cleaning on the 14th. Times are on the calendar.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-142}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-160 days','-856 minutes'))",
+      "params": [
+        "perf-ann-54",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-163 days','-918 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-163 days','-918 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-55",
+        "Yard work day Saturday (update)",
+        "Leaves, gutters and the garden beds. Starting at 9, pizza at noon.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-153}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-163 days','-873 minutes'))",
+      "params": [
+        "perf-ann-55",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-166 days','-935 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-166 days','-935 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-56",
+        "Furnace filter replaced (reminder)",
+        "Next change is due in three months. The spare filters are on the garage shelf.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-152}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-166 days','-890 minutes'))",
+      "params": [
+        "perf-ann-56",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-169 days','-952 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-169 days','-952 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-57",
+        "School picture day (follow-up)",
+        "Picture day is Thursday. Order forms are on the fridge and due Wednesday.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-151}}",
+        1,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-169 days','-907 minutes'))",
+      "params": [
+        "perf-ann-57",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-172 days','-969 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-172 days','-969 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-58",
+        "Smoke detector test tonight (update)",
+        "They will beep for about a minute around 7pm. Nothing is wrong.",
+        "pending",
+        "{{adult2}}",
+        "Perf Adult",
+        "{{date:-162}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-172 days','-924 minutes'))",
+      "params": [
+        "perf-ann-58",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-175 days','-986 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-175 days','-986 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-59",
+        "Dog walker starts Monday (reminder)",
+        "Sam will come by at noon on weekdays. The side gate code is on the whiteboard.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-161}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-175 days','-941 minutes'))",
+      "params": [
+        "perf-ann-59",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-178 days','-1003 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-178 days','-1003 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-60",
+        "Holiday travel dates set (follow-up)",
+        "We leave on the 22nd and are back on the 29th. Details in Trip Planner.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-160}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-178 days','-958 minutes'))",
+      "params": [
+        "perf-ann-60",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-181 days','-1020 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-181 days','-1020 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-61",
+        "Pool closed for maintenance (update)",
+        "The pool will be closed Thursday and Friday while the filter is replaced. Back open Saturday morning.",
+        "pending",
+        "{{me}}",
+        "Perf Admin",
+        "{{date:-171}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-181 days','-975 minutes'))",
+      "params": [
+        "perf-ann-61",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone) VALUES (?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-184 days','-1037 minutes'), strftime('%Y-%m-%dT%H:%M:%fZ','now','-184 days','-1037 minutes'), ?, ?)",
+      "params": [
+        "perf-ann-62",
+        "Trash pickup moves to Wednesday (reminder)",
+        "Because of the holiday, pickup shifts one day this week. Bins out Tuesday night.",
+        "pending",
+        "{{partner}}",
+        "Perf Partner",
+        "{{date:-170}}",
+        0,
+        0
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-184 days','-992 minutes'))",
+      "params": [
+        "perf-ann-62",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','0 days','-30 minutes'))",
+      "params": [
+        "perf-ann-01",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','0 days','-30 minutes'))",
+      "params": [
+        "perf-ann-01",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','0 days','-30 minutes'))",
+      "params": [
+        "perf-ann-01",
+        "{{child2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-12 days','-30 minutes'))",
+      "params": [
+        "perf-ann-05",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-18 days','-30 minutes'))",
+      "params": [
+        "perf-ann-07",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-21 days','-30 minutes'))",
+      "params": [
+        "perf-ann-08",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-20 days','-30 minutes'))",
+      "params": [
+        "perf-ann-08",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-24 days','-30 minutes'))",
+      "params": [
+        "perf-ann-09",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-30 days','-30 minutes'))",
+      "params": [
+        "perf-ann-11",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-36 days','-30 minutes'))",
+      "params": [
+        "perf-ann-13",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-42 days','-30 minutes'))",
+      "params": [
+        "perf-ann-15",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-42 days','-30 minutes'))",
+      "params": [
+        "perf-ann-15",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-41 days','-30 minutes'))",
+      "params": [
+        "perf-ann-15",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-41 days','-30 minutes'))",
+      "params": [
+        "perf-ann-15",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-40 days','-30 minutes'))",
+      "params": [
+        "perf-ann-15",
+        "{{child2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-48 days','-30 minutes'))",
+      "params": [
+        "perf-ann-17",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-54 days','-30 minutes'))",
+      "params": [
+        "perf-ann-19",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-60 days','-30 minutes'))",
+      "params": [
+        "perf-ann-21",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-66 days','-30 minutes'))",
+      "params": [
+        "perf-ann-23",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-72 days','-30 minutes'))",
+      "params": [
+        "perf-ann-25",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-78 days','-30 minutes'))",
+      "params": [
+        "perf-ann-27",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-84 days','-30 minutes'))",
+      "params": [
+        "perf-ann-29",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-84 days','-30 minutes'))",
+      "params": [
+        "perf-ann-29",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-83 days','-30 minutes'))",
+      "params": [
+        "perf-ann-29",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-83 days','-30 minutes'))",
+      "params": [
+        "perf-ann-29",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-82 days','-30 minutes'))",
+      "params": [
+        "perf-ann-29",
+        "{{child2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-90 days','-30 minutes'))",
+      "params": [
+        "perf-ann-31",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-96 days','-30 minutes'))",
+      "params": [
+        "perf-ann-33",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-102 days','-30 minutes'))",
+      "params": [
+        "perf-ann-35",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-105 days','-30 minutes'))",
+      "params": [
+        "perf-ann-36",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-104 days','-30 minutes'))",
+      "params": [
+        "perf-ann-36",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-108 days','-30 minutes'))",
+      "params": [
+        "perf-ann-37",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-114 days','-30 minutes'))",
+      "params": [
+        "perf-ann-39",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-120 days','-30 minutes'))",
+      "params": [
+        "perf-ann-41",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-126 days','-30 minutes'))",
+      "params": [
+        "perf-ann-43",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-126 days','-30 minutes'))",
+      "params": [
+        "perf-ann-43",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-125 days','-30 minutes'))",
+      "params": [
+        "perf-ann-43",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-125 days','-30 minutes'))",
+      "params": [
+        "perf-ann-43",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-124 days','-30 minutes'))",
+      "params": [
+        "perf-ann-43",
+        "{{child2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-132 days','-30 minutes'))",
+      "params": [
+        "perf-ann-45",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-138 days','-30 minutes'))",
+      "params": [
+        "perf-ann-47",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-144 days','-30 minutes'))",
+      "params": [
+        "perf-ann-49",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-147 days','-30 minutes'))",
+      "params": [
+        "perf-ann-50",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-146 days','-30 minutes'))",
+      "params": [
+        "perf-ann-50",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-150 days','-30 minutes'))",
+      "params": [
+        "perf-ann-51",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-156 days','-30 minutes'))",
+      "params": [
+        "perf-ann-53",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-162 days','-30 minutes'))",
+      "params": [
+        "perf-ann-55",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-168 days','-30 minutes'))",
+      "params": [
+        "perf-ann-57",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-168 days','-30 minutes'))",
+      "params": [
+        "perf-ann-57",
+        "{{partner}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-167 days','-30 minutes'))",
+      "params": [
+        "perf-ann-57",
+        "{{adult2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-167 days','-30 minutes'))",
+      "params": [
+        "perf-ann-57",
+        "{{child}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-166 days','-30 minutes'))",
+      "params": [
+        "perf-ann-57",
+        "{{child2}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-174 days','-30 minutes'))",
+      "params": [
+        "perf-ann-59",
+        "{{me}}"
+      ]
+    },
+    {
+      "sql": "INSERT INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now','-180 days','-30 minutes'))",
+      "params": [
+        "perf-ann-61",
+        "{{me}}"
+      ]
+    }
+  ]
+}
