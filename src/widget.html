@@ -108,11 +108,11 @@ async function dbq(sql, params = []) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sql, params }),
   });
-  const body = await res.json().catch(() => ({}));
+  const body = await res.json().catch(() => null);
   // Surface a failed query instead of silently rendering the empty state — a
   // rejected read (e.g. a row-policy 4xx) otherwise looks identical to "no
   // announcements", which hides real bugs.
-  if (!res.ok || body?.error) {
+  if (!res.ok || !body || typeof body !== "object" || body.error) {
     throw new Error(body?.error ?? `db query failed (${res.status})`);
   }
   return body;

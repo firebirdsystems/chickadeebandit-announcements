@@ -171,6 +171,8 @@
     }
     .empty-icon { margin-bottom: 12px; }
     .empty p { font-size: 0.9rem; }
+    .load-error { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; background: var(--hub-tint-danger, #fee2e2); color: var(--hub-tint-danger-fg, #b91c1c); font-size: 0.9rem; display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+    .load-error-retry { background: none; border: 1px solid currentColor; border-radius: 8px; padding: 5px 10px; font: inherit; font-weight: 600; color: inherit; cursor: pointer; flex-shrink: 0; }
 
     /* Modal */
     .modal-backdrop {
@@ -350,12 +352,12 @@ async function db(sql, params = []) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sql, params }),
   });
-  const json = await res.json();
+  const json = await res.json().catch(() => null);
   // The hub reports a refused write as a JSON body with an `error` key
   // (403 row policy, 400 bad statement, 507 over quota). fetch() does not
   // reject on those, so without this throw every caller's rollback and
   // error toast below is unreachable code.
-  if (!res.ok || json.error) throw new Error(json.error || `Database request failed (${res.status})`);
+  if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || `Database request failed (${res.status})`);
   return json;
 }
 
@@ -367,8 +369,8 @@ async function dbBatch(statements) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ statements }),
   });
-  const json = await res.json();
-  if (!res.ok || json.error) throw new Error(json.error || `Database request failed (${res.status})`);
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || `Database request failed (${res.status})`);
   return json;
 }
 
@@ -383,12 +385,15 @@ async function loadMembers() {
     ];
     return;
   }
-  try {
-    const res  = await fetch(`${CONTEXT}?keys=family.members,family.groups`);
-    const data = await res.json();
-    members = data["family.members"] ?? [];
-    groups  = data["family.groups"]  ?? [];
-  } catch { members = []; groups = []; }
+  // A member list that could not be read is a failed load, not a household with
+  // nobody in it: `canModerate` would answer false for everyone.
+  const res  = await fetch(`${CONTEXT}?keys=family.members,family.groups`);
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data || typeof data !== "object" || data.error) throw new Error("Couldn’t reach the hub. Try again.");
+  // A 200 can still name a key the hub failed to read; an absent key with no such entry is only "not permitted".
+  if (Array.isArray(data.$errors) && (data.$errors.includes("family.members") || data.$errors.includes("family.groups"))) throw new Error("Couldn’t reach the hub. Try again.");
+  members = data["family.members"] ?? [];
+  groups  = data["family.groups"]  ?? [];
 }
 
 async function loadSettings() {
@@ -520,6 +525,8 @@ document.addEventListener("input", (e) => {
   render();  // render() only rewrites #list, so the search box keeps focus
 });
 
+let loadFailed = false;
+
 function render() {
   // Update pending badge
   const pendingCount = announcements.filter(a => a.status === "pending").length;
@@ -555,6 +562,12 @@ function render() {
   const items = filteredList();
   const listEl = document.getElementById("list");
   if (!listEl) return;
+
+  // Until the first load succeeds, "No active announcements." would be a guess.
+  if (loadFailed) {
+    listEl.innerHTML = `<div class="load-error" data-testid="load-error" role="alert"><span>Couldn’t load announcements.</span> <button type="button" class="load-error-retry" data-testid="load-retry">Try again</button></div>`;
+    return;
+  }
 
   if (items.length === 0) {
     if (searchQ) {
@@ -771,7 +784,7 @@ window.submitAnn = async function() {
     render();
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = canModerate() ? "Create Announcement" : "Post Announcement"; }
-    throw e;
+    hubAlert(e.message ?? "The announcement could not be posted.");
   }
 };
 
@@ -860,20 +873,27 @@ window.acknowledgeAnn = async function(id) {
   } catch {
     // A concurrent duplicate acknowledgement (max_per_member) — reload and move on.
   }
-  await loadAcknowledgements();
+  await loadAcknowledgements().catch(() => {});
   closeModal();
   render();
   window.openDetail(id);
+  if (!hasAcknowledged(id)) hubAlert("Your acknowledgement could not be saved. Try again.");
 };
 
 window.loadAckList = async function(announcementId) {
   const el = document.getElementById(`ack-list-${announcementId}`);
   if (!el) return;
   el.textContent = "Loading…";
-  const { rows } = await db(
-    `SELECT member_id, acknowledged_at FROM app_announcements__acknowledgements WHERE announcement_id = ? ORDER BY acknowledged_at ASC`,
-    [announcementId]
-  );
+  let rows;
+  try {
+    ({ rows } = await db(
+      `SELECT member_id, acknowledged_at FROM app_announcements__acknowledgements WHERE announcement_id = ? ORDER BY acknowledged_at ASC`,
+      [announcementId]
+    ));
+  } catch {
+    el.textContent = "Couldn’t load acknowledgements. Try again.";
+    return;
+  }
   if (!rows || rows.length === 0) {
     el.textContent = "No acknowledgements yet.";
     return;
@@ -942,7 +962,7 @@ window.approveAnn = async function(id) {
     render();
   } catch (e) {
     if (btn instanceof HTMLButtonElement) { btn.disabled = false; btn.textContent = "Approve"; }
-    throw e;
+    hubAlert(e.message ?? "The announcement could not be approved.");
   }
 };
 
@@ -965,13 +985,22 @@ window.deleteAnn = async function(id) {
   // row behind — and the `inherit_visibility` policy on `approvals` resolves
   // through a parent that no longer exists, so the orphan was unreachable and
   // undeletable from the app.
-  await dbBatch([
-    { sql: `DELETE FROM app_announcements__approvals WHERE announcement_id = ?`, params: [id] },
-    { sql: `DELETE FROM app_announcements__announcements WHERE id = ?`, params: [id] },
-  ]);
-  await loadAnnouncements();
-  closeModal();
-  render();
+  try {
+    const { results } = await dbBatch([
+      { sql: `DELETE FROM app_announcements__approvals WHERE announcement_id = ?`, params: [id] },
+      { sql: `DELETE FROM app_announcements__announcements WHERE id = ?`, params: [id] },
+    ]);
+    await loadAnnouncements();
+    closeModal();
+    render();
+    // The hub answers 200 with nothing changed when the caller may not delete
+    // this row; the re-read above still shows it, so say why.
+    if (results?.[1]?.changed === 0 && announcements.some(a => a.id === id)) {
+      hubAlert("Nothing was deleted. Only the author or a moderator can delete this announcement.");
+    }
+  } catch (e) {
+    hubAlert(e.message ?? "The announcement could not be deleted.");
+  }
 };
 
 // ── Moderator settings (hub admin only) ───────────────────────────────────────
@@ -1158,14 +1187,23 @@ async function init() {
     return;
   }
 
-  await Promise.all([loadMembers(), loadSettings()]);
-  await Promise.all([loadAnnouncements(), loadAcknowledgements()]);
+  try {
+    await Promise.all([loadMembers(), loadSettings()]);
+    await Promise.all([loadAnnouncements(), loadAcknowledgements()]);
+    loadFailed = false;
+  } catch {
+    loadFailed = true;
+  }
   // Show settings gear for hub admins
   const settingsBtn = document.getElementById("settings-btn");
   if (settingsBtn && hubAdmin) settingsBtn.style.display = "";
   render();
   handleDeepLink();
 }
+
+document.addEventListener("click", (e) => {
+  if (e.target.closest('[data-testid="load-retry"]')) init();
+});
 
 init();
 </script>
