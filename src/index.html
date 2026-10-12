@@ -784,7 +784,8 @@ window.submitAnn = async function() {
     render();
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = canModerate() ? "Create Announcement" : "Post Announcement"; }
-    hubAlert(e.message ?? "The announcement could not be posted.");
+    console.error(e);
+    hubAlert("Couldn’t post the announcement — try again.");
   }
 };
 
@@ -962,7 +963,8 @@ window.approveAnn = async function(id) {
     render();
   } catch (e) {
     if (btn instanceof HTMLButtonElement) { btn.disabled = false; btn.textContent = "Approve"; }
-    hubAlert(e.message ?? "The announcement could not be approved.");
+    console.error(e);
+    hubAlert("Couldn’t approve the announcement — try again.");
   }
 };
 
@@ -999,7 +1001,8 @@ window.deleteAnn = async function(id) {
       hubAlert("Nothing was deleted. Only the author or a moderator can delete this announcement.");
     }
   } catch (e) {
-    hubAlert(e.message ?? "The announcement could not be deleted.");
+    console.error(e);
+    hubAlert("Couldn’t delete the announcement — try again.");
   }
 };
 
@@ -1049,7 +1052,8 @@ window.saveModSettings = async function() {
     render();
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = "Save"; }
-    hubAlert(e.message ?? "Save failed");
+    console.error(e);
+    hubAlert("Couldn’t save the settings — try again.");
   }
 };
 

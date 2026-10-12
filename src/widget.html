@@ -87,6 +87,7 @@
     }
     .open-link:hover { text-decoration: underline; }
 
+    .load-error { margin: 8px; padding: 8px 10px; border-radius: 10px; background: var(--hub-tint-danger, #fee2e2); color: var(--hub-tint-danger-fg, #b91c1c); font-size: 0.8rem; }
     .empty {
       flex: 1; display: flex; flex-direction: column;
       align-items: center; justify-content: center;
@@ -167,10 +168,10 @@ function render(items) {
   document.body.innerHTML = header + rows + footer;
 }
 
-load().catch((e) => {
+load().catch(() => {
   document.body.innerHTML = `
+    <div class="load-error" data-testid="load-error" role="alert">Couldn’t load announcements.</div>
     <div class="empty">
-      <span style="color:#dc2626;font-size:11px;max-width:90%;text-align:center">${esc(String(e?.message ?? e))}</span>
       <a href="/run/${APP_ID}" style="color:#111827;font-weight:600;text-decoration:none">Open Announcements →</a>
     </div>`;
 });
