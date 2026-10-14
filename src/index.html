@@ -276,7 +276,7 @@ import {
   hubAlert, memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate, searchMatch, hubToday,
   createShareHelper, activeShareLinks, glyph, chickadee, SHARE_EXPIRY_CHOICES, DEFAULT_SHARE_EXPIRY_HOURS,
 } from "/hub-sdk.js";
-import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate, searchableFields, canShareAnnouncement, supervisesAcknowledgements } from "./logic.js";
+import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate, searchableFields, canShareAnnouncement, supervisesAcknowledgements, outcomeUnknown, storedDiffers, SAVED_AS_FIRST, failureLine } from "./logic.js";
 import { createShareUi, createOverlayView } from "./share.js";
 
 // The page heading and settings button are static markup; their marks come from the SDK.
@@ -357,7 +357,7 @@ async function db(sql, params = []) {
   // (403 row policy, 400 bad statement, 507 over quota). fetch() does not
   // reject on those, so without this throw every caller's rollback and
   // error toast below is unreachable code.
-  if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || `Database request failed (${res.status})`);
+  if (!res.ok || !json || typeof json !== "object" || json.error) throw Object.assign(new Error(json?.error || `Database request failed (${res.status})`), { status: res.status, code: json?.code });
   return json;
 }
 
@@ -370,7 +370,7 @@ async function dbBatch(statements) {
     body: JSON.stringify({ statements }),
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok || !json || typeof json !== "object" || json.error) throw new Error(json?.error || `Database request failed (${res.status})`);
+  if (!res.ok || !json || typeof json !== "object" || json.error) throw Object.assign(new Error(json?.error || `Database request failed (${res.status})`), { status: res.status, code: json?.code });
   return json;
 }
 
@@ -728,43 +728,87 @@ window.submitAnn = async function() {
   if (!body)  { document.getElementById("f-body")?.focus(); return; }
   if (!expires) return;
 
-  const btn = modalEl?.querySelector(".modal-actions .btn-primary");
+  const host = modalEl;
+  const btn = host?.querySelector(".modal-actions .btn-primary");
   if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
 
+  // The id is the form's, minted on its first Save and sent on every retry: a
+  // try whose answer was lost may have stored the announcement, and a second
+  // press must find it rather than post (and push, and email) it again.
+  const id         = host ? (host.dataset.rowId ||= crypto.randomUUID()) : crypto.randomUUID();
+  const now        = new Date().toISOString();
+  const mod        = canModerate();
+  const authorId   = ME?.id   ?? "demo";
+  const authorName = ME?.name ?? "You";
+  const typed      = { title, body, expires_at: expires, is_critical: isCritical, email_everyone: emailAll };
+  let posted = { title, body, emailAll };
+  let note = "";
+
   try {
-    const id         = crypto.randomUUID();
-    const now        = new Date().toISOString();
-    const mod        = canModerate();
-    const authorId   = ME?.id   ?? "demo";
-    const authorName = ME?.name ?? "You";
-
-    await db(
-      `INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone)
+    // A moderator's own approval goes in the same batch: both are stored, or
+    // neither, so a found announcement is never one left pending by accident.
+    const statements = [{
+      sql: `INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone)
        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`,
-      [id, title, body, authorId, authorName, expires, now, now, isCritical, emailAll]
-    );
-
+      params: [id, title, body, authorId, authorName, expires, now, now, isCritical, emailAll],
+    }];
     if (mod) {
-      await db(
-        `INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, ?)`,
-        [id, authorId, now]
-      );
+      statements.push({
+        sql: `INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, ?)`,
+        params: [id, authorId, now],
+      });
     }
+    try {
+      await dbBatch(statements);
+    } catch (e) {
+      // Unknown outcome: read the announcement back by the pinned id. Found
+      // means an earlier try landed and its success path never ran, so it runs
+      // now, once. Not found, or the read failed: the post fails, the id stays pinned.
+      if (!outcomeUnknown(e)) throw e;
+      let stored = null;
+      try {
+        stored = (await db(
+          `SELECT title, body, expires_at, is_critical, email_everyone FROM app_announcements__announcements WHERE id = ?`, [id]
+        )).rows?.[0] ?? null;
+      } catch (readErr) {
+        // The id is ours: with the read-back failed, a UNIQUE answer may be this
+        // form's own first try, so nothing is known — "try again", not "already exists".
+        console.error(readErr);
+        throw new Error("create outcome unknown", { cause: e });
+      }
+      if (!stored) throw e;
+      console.error(e);
+      // Edited since that first try: what was stored is kept, and said so.
+      if (storedDiffers(stored, typed)) note = SAVED_AS_FIRST;
+      posted = { title: stored.title, body: stored.body, emailAll: Number(stored.email_everyone) ? 1 : 0 };
+    }
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = canModerate() ? "Create Announcement" : "Post Announcement"; }
+    console.error(e);
+    hubAlert(failureLine(e, { action: "post the announcement", thing: "announcement" }));
+    return;
+  }
+  if (host) delete host.dataset.rowId;
 
+  // Stored. Nothing below can make the post look failed: a reload that fails
+  // falls back to what was written (a moderator's post is approved with it).
+  let isApproved = !!mod;
+  try {
     await loadAnnouncements();
-    const effective = announcements.find(a => a.id === id);
-    const isApproved = effective?.status === "approved";
+    isApproved = announcements.find(a => a.id === id)?.status === "approved";
+  } catch (e) { console.error(e); }
 
+  try {
     await Promise.all([
       isApproved
-        ? publishEvent("announcement.approved", id, { title, authorId })
-        : publishEvent("announcement.submitted", id, { title, authorId }),
-      isApproved ? notify(`📢 New Announcement: ${title}`, body.slice(0, 100), emailAll ? body : null) : Promise.resolve(),
+        ? publishEvent("announcement.approved", id, { title: posted.title, authorId })
+        : publishEvent("announcement.submitted", id, { title: posted.title, authorId }),
+      isApproved ? notify(`📢 New Announcement: ${posted.title}`, posted.body.slice(0, 100), posted.emailAll ? posted.body : null) : Promise.resolve(),
       isApproved ? fetch("/api/messages", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           authorName: "Announcements",
-          body: `📢 ${authorName} posted a new announcement: "${title.slice(0, 60)}"`,
+          body: `📢 ${authorName} posted a new announcement: "${posted.title.slice(0, 60)}"`,
           url: `/run/${APP_ID}?announcementId=${id}`,
         }),
       }).catch(() => {}) : Promise.resolve(),
@@ -773,20 +817,17 @@ window.submitAnn = async function() {
         body: JSON.stringify({
           type: "conversation_message_posted",
           actor: authorName,
-          description: `${authorName} posted a new announcement: "${title.slice(0, 60)}"`,
+          description: `${authorName} posted a new announcement: "${posted.title.slice(0, 60)}"`,
           metadata: { deepLink: { appId: APP_ID, params: { announcementId: id } } },
         }),
       }).catch(() => {}) : Promise.resolve(),
     ]);
+  } catch (e) { console.error(e); }
 
-    closeModal();
-    switchTab(isApproved ? "active" : "pending");
-    render();
-  } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = canModerate() ? "Create Announcement" : "Post Announcement"; }
-    console.error(e);
-    hubAlert("Couldn’t post the announcement — try again.");
-  }
+  if (modalEl === host) closeModal();
+  switchTab(isApproved ? "active" : "pending");
+  render();
+  if (note) hubAlert(note);
 };
 
 // ── Detail modal ──────────────────────────────────────────────────────────────
@@ -866,19 +907,26 @@ window.acknowledgeAnn = async function(id) {
   if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
 
   const now = new Date().toISOString();
+  let writeErr = null;
   try {
     await db(
       `INSERT OR IGNORE INTO app_announcements__acknowledgements (announcement_id, member_id, acknowledged_at) VALUES (?, ?, ?)`,
       [id, ME.id, now]
     );
-  } catch {
+  } catch (e) {
     // A concurrent duplicate acknowledgement (max_per_member) — reload and move on.
+    writeErr = e;
+    console.error(e);
   }
-  await loadAcknowledgements().catch(() => {});
+  const reloaded = await loadAcknowledgements().then(() => true, (e) => { console.error(e); return false; });
   closeModal();
   render();
   window.openDetail(id);
-  if (!hasAcknowledged(id)) hubAlert("Your acknowledgement could not be saved. Try again.");
+  // Not stored: a refusal by its status; a write that answered but stored
+  // nothing was narrowed away (permission); a failed re-read is unknown.
+  if (!hasAcknowledged(id)) {
+    hubAlert(failureLine(writeErr, { action: "acknowledge the announcement", thing: "acknowledgement", found: !reloaded ? null : writeErr ? undefined : true }));
+  }
 };
 
 window.loadAckList = async function(announcementId) {
@@ -914,6 +962,7 @@ window.approveAnn = async function(id) {
   const btn = document.activeElement;
   if (btn instanceof HTMLButtonElement) { btn.disabled = true; btn.textContent = "Approving…"; }
 
+  let changed;
   try {
     const now = new Date().toISOString();
     // OR IGNORE + a changed-count gate: `announcement_id` is the approvals
@@ -923,10 +972,20 @@ window.approveAnn = async function(id) {
     // notifications, two inbox messages, and two charges against the household's
     // daily email quota. Only the moderator whose INSERT actually created the
     // row announces it.
-    const { changed } = await db(
+    ({ changed } = await db(
       `INSERT OR IGNORE INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, ?)`,
       [id, ME?.id ?? "system", now]
-    );
+    ));
+  } catch (e) {
+    if (btn instanceof HTMLButtonElement) { btn.disabled = false; btn.textContent = "Approve"; }
+    console.error(e);
+    hubAlert(failureLine(e, { action: "approve the announcement", thing: "announcement" }));
+    return;
+  }
+
+  // The approval is stored from here on: a failed reload or fan-out is logged,
+  // never reported as a failed approval.
+  try {
     if (!changed) {
       await loadAnnouncements();
       closeModal();
@@ -957,15 +1016,12 @@ window.approveAnn = async function(id) {
         }),
       }).catch(() => {}),
     ]);
-
-    closeModal();
-    switchTab("active");
-    render();
   } catch (e) {
-    if (btn instanceof HTMLButtonElement) { btn.disabled = false; btn.textContent = "Approve"; }
     console.error(e);
-    hubAlert("Couldn’t approve the announcement — try again.");
   }
+  closeModal();
+  switchTab("active");
+  render();
 };
 
 // ── Delete ────────────────────────────────────────────────────────────────────
@@ -987,22 +1043,32 @@ window.deleteAnn = async function(id) {
   // row behind — and the `inherit_visibility` policy on `approvals` resolves
   // through a parent that no longer exists, so the orphan was unreachable and
   // undeletable from the app.
+  let results;
   try {
-    const { results } = await dbBatch([
+    ({ results } = await dbBatch([
       { sql: `DELETE FROM app_announcements__approvals WHERE announcement_id = ?`, params: [id] },
       { sql: `DELETE FROM app_announcements__announcements WHERE id = ?`, params: [id] },
-    ]);
-    await loadAnnouncements();
-    closeModal();
-    render();
-    // The hub answers 200 with nothing changed when the caller may not delete
-    // this row; the re-read above still shows it, so say why.
-    if (results?.[1]?.changed === 0 && announcements.some(a => a.id === id)) {
-      hubAlert("Nothing was deleted. Only the author or a moderator can delete this announcement.");
-    }
+    ]));
   } catch (e) {
     console.error(e);
-    hubAlert("Couldn’t delete the announcement — try again.");
+    hubAlert(failureLine(e, { action: "delete the announcement", thing: "announcement" }));
+    return;
+  }
+  // The batch committed: a failed reload is logged, not reported as a failed delete.
+  let reloaded = true;
+  try {
+    await loadAnnouncements();
+  } catch (e) {
+    console.error(e);
+    reloaded = false;
+    if (results?.[1]?.changed > 0) announcements = announcements.filter(a => a.id !== id);
+  }
+  closeModal();
+  render();
+  // The hub answers 200 with nothing changed when the caller may not delete
+  // this row; the re-read above still shows it, so say why.
+  if (reloaded && results?.[1]?.changed === 0 && announcements.some(a => a.id === id)) {
+    hubAlert(failureLine(null, { action: "delete the announcement", thing: "announcement", found: true }));
   }
 };
 
@@ -1045,7 +1111,7 @@ window.saveModSettings = async function() {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error ?? "Save failed");
+      throw Object.assign(new Error(err?.error ?? "Save failed"), { status: res.status, code: typeof err?.code === "string" ? err.code : undefined });
     }
     modGroupId = groupId || null;
     closeModal();
@@ -1053,7 +1119,7 @@ window.saveModSettings = async function() {
   } catch (e) {
     if (btn) { btn.disabled = false; btn.textContent = "Save"; }
     console.error(e);
-    hubAlert("Couldn’t save the settings — try again.");
+    hubAlert(failureLine(e, { action: "save the settings", thing: "setting" }));
   }
 };
 
