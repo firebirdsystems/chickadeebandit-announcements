@@ -277,7 +277,7 @@ import {
   createShareHelper, activeShareLinks, glyph, chickadee, SHARE_EXPIRY_CHOICES, DEFAULT_SHARE_EXPIRY_HOURS,
 } from "/hub-sdk.js";
 import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate, searchableFields, canShareAnnouncement, supervisesAcknowledgements, outcomeUnknown, storedDiffers, SAVED_AS_FIRST, failureLine } from "./logic.js";
-import { createShareUi, createOverlayView } from "./share.js";
+import { createShareUi, createOverlayView } from "/hub-share-ui.js";
 
 // The page heading and settings button are static markup; their marks come from the SDK.
 document.getElementById("page-glyph").innerHTML = glyph("megaphone");
