@@ -190,7 +190,7 @@ describe("member_references", () => {
 // which is what migration 007 adds (the only prior index leads with `status`).
 describe("retention", () => {
   it("expires announcements and cascades to their child rows", () => {
-    expect(manifest.row_policies.announcements.retain_days).toEqual({
+    expect(manifest.retention.announcements).toEqual({
       default: 365,
       timestamp_column: "created_at",
       override_key: "announcement_history",
