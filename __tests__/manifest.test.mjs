@@ -44,15 +44,11 @@ describe("manifest.json", () => {
     for (const e of manifest.publishes) expect(typeof e).toBe("string");
   });
 
-  it("alert_on is an array of strings", () => {
-    expect(Array.isArray(manifest.alert_on)).toBe(true);
-    for (const e of manifest.alert_on) expect(typeof e).toBe("string");
-  });
-
-  it("alert_on events are a subset of publishes", () => {
-    for (const e of manifest.alert_on) {
-      expect(manifest.publishes).toContain(e);
-    }
+  // The hub writes an app alert to every member, whatever the audience, so
+  // an announcement meant for the board would ring everyone's bell. The
+  // targeted push already lands in the audience's inbox.
+  it("raises no bell alert of its own", () => {
+    expect(manifest.alert_on).toBeUndefined();
   });
 
   it("has nav with a label", () => {
@@ -175,9 +171,13 @@ describe("member_references", () => {
       announcements: [
         { column: "author_id", on_removed: "keep" },
         { column: "approved_by", on_removed: "keep" },
+        // A chosen-members audience loses a departed member rather than
+        // naming an id nobody can resolve.
+        { column: "audience_member_ids", on_removed: "prune_list" },
       ],
       approvals: { column: "approved_by", on_removed: "keep" },
       acknowledgements: { column: "member_id", on_removed: "delete", id_column: "rowid" },
+      attachments: { column: "uploaded_by", on_removed: "keep" },
     });
   });
 });
@@ -197,6 +197,8 @@ describe("retention", () => {
       dependent_tables: [
         { table: "approvals", foreign_key: "announcement_id" },
         { table: "acknowledgements", foreign_key: "announcement_id" },
+        // An attachment's bytes go with the announcement that aged out.
+        { table: "attachments", foreign_key: "announcement_id", file_id_column: "file_id" },
       ],
     });
   });
@@ -337,5 +339,59 @@ describe.skipIf(!manifest.automation_actions)("automation_actions match the migr
         expect(s.param_map?.[name], `"${s.title}" does not map required param "${name}"`).toBeTruthy();
       }
     }
+  });
+});
+
+// Attachments: one hub file per row under the announcement. Only the author
+// attaches (`insert_only_by_parent_column_member`), which the hub enforces
+// even for moderators; readers follow the announcement's visibility. The file
+// column is declared on every reclaim path: a direct delete, the retention
+// sweep (above) and a deleted announcement (delete_cascades).
+describe("attachments", () => {
+  it("inherit the announcement's visibility and are written by its author alone", () => {
+    expect(manifest.row_policies.attachments).toEqual({
+      kind: "inherit_visibility",
+      fk_column: "announcement_id",
+      parent_table: "announcements",
+      writer_column: "uploaded_by",
+      insert_only_by_parent_column_member: "author_id",
+      // The page's five-file cap, held by the hub too.
+      max_per_member: { member_column: "uploaded_by", scope_columns: ["announcement_id"], limit: 5 },
+      // The cap counts inserts only, so an attachment can never be moved to
+      // another announcement or have its file swapped after it is added.
+      column_write_acls: {
+        announcement_id: { writable_by: [], actions: ["update"] },
+        file_id: { writable_by: [], actions: ["update"] },
+        uploaded_by: { writable_by: [], actions: ["update"] },
+      },
+    });
+  });
+  it("declare the file column for reclaim on every path", () => {
+    expect(manifest.file_columns).toEqual({ attachments: { columns: ["file_id"] } });
+    // Every child goes with the announcement, as trusted engine statements in
+    // the same transaction. Declaring a cascade also makes the hub refuse the
+    // parent DELETE inside a batch, so the page sends it alone (deleteAnn).
+    expect(manifest.delete_cascades).toEqual({
+      announcements: [
+        { table: "approvals", foreign_key: "announcement_id" },
+        { table: "acknowledgements", foreign_key: "announcement_id" },
+        { table: "attachments", foreign_key: "announcement_id", file_id_column: "file_id" },
+      ],
+    });
+  });
+  it("keep attachments off the share page", () => {
+    expect(manifest.shareable.announcement.files).toBeUndefined();
+    expect(manifest.shareable.announcement.feeds).toBeUndefined();
+  });
+});
+
+// The audience is a delivery choice stored on the row. Both columns carry a
+// DEFAULT, which SQLite writes outside the codec (to every existing row, when
+// migration 009 adds them), so the hub requires them plaintext. It needs the
+// admitted member set to resolve "everyone" and a group honestly.
+describe("audience", () => {
+  it("reads the admitted members and keeps the defaulted columns plaintext", () => {
+    expect(manifest.data_access.reads).toContain("family.app_members");
+    expect(manifest.db_plaintext_columns).toEqual(["audience_kind", "audience_member_ids", "approved_flag"]);
   });
 });

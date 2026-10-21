@@ -10,6 +10,7 @@ import {
   initial,
   isAdult,
   canModerate, searchableFields, supervisesAcknowledgements,
+  audienceIds, notifyAudience, audienceLabel, audienceDraft, notAcknowledged, asksToAcknowledge, isFileId, parseStrings, emailOutcomeLine,
 } from "../src/logic.js";
 import { testPrivilegedGateContract } from "./helpers/privileged-gate.mjs";
 
@@ -263,5 +264,88 @@ describe("supervisesAcknowledgements", () => {
   it("is the steward of a shared space or a roster", () => {
     expect(supervisesAcknowledgements(ADULT, { tenantKind: "shared_space", spaceKind: "general", isAdmin: true })).toBe(true);
     expect(supervisesAcknowledgements(ADULT, { tenantKind: "shared_space", spaceKind: "roster", isAdmin: true })).toBe(true);
+  });
+});
+
+// ── Audience ──────────────────────────────────────────────────────────────────
+// Who an approved announcement is delivered to. The admitted set
+// (family.app_members) bounds every kind; nothing here ever widens to "all"
+// from a value it cannot read.
+
+describe("audience", () => {
+  const members = [
+    { id: "m1", name: "Alex", role: "adult" }, { id: "m2", name: "Jamie", role: "adult" },
+    { id: "m3", name: "Casey", role: "child" }, { id: "m4", name: "Robin", role: "adult" },
+  ];
+  const groups = [{ id: "g1", name: "Board", memberIds: ["m1", "m4"] }];
+  const ctx = { groups, members, appMembers: members.slice(0, 3) };
+  const ann = (over = {}) => ({ audience_kind: "everyone", audience_group_id: null, audience_member_ids: "[]", ...over });
+
+  it("everyone is the admitted set, and a legacy row with no kind is everyone", () => {
+    expect(audienceIds(ann(), ctx)).toEqual(["m1", "m2", "m3"]);
+    expect(audienceIds({}, ctx)).toEqual(["m1", "m2", "m3"]);
+    expect(audienceIds(ann(), { ...ctx, appMembers: null })).toEqual(["m1", "m2", "m3", "m4"]);
+    expect(notifyAudience(ann(), ctx)).toBe("all");
+    expect(notifyAudience({}, ctx)).toBe("all");
+  });
+  it("a group is intersected with the admitted set; a missing group is nobody", () => {
+    expect(audienceIds(ann({ audience_kind: "group", audience_group_id: "g1" }), ctx)).toEqual(["m1"]);
+    expect(notifyAudience(ann({ audience_kind: "group", audience_group_id: "g1" }), ctx)).toEqual(["m1"]);
+    expect(notifyAudience(ann({ audience_kind: "group", audience_group_id: "gone" }), ctx)).toBe(null);
+  });
+  it("chosen members are filtered to those admitted; an unknown kind is nobody", () => {
+    expect(audienceIds(ann({ audience_kind: "members", audience_member_ids: '["m3","m4","zz"]' }), ctx)).toEqual(["m3"]);
+    expect(notifyAudience(ann({ audience_kind: "members", audience_member_ids: "[]" }), ctx)).toBe(null);
+    expect(notifyAudience(ann({ audience_kind: "all" }), ctx)).toBe(null);
+    expect(parseStrings("not json")).toEqual([]);
+  });
+  it("labels the audience", () => {
+    expect(audienceLabel(ann(), ctx)).toBe("Everyone");
+    expect(audienceLabel(ann({ audience_kind: "group", audience_group_id: "g1" }), ctx)).toBe("Group: Board");
+    expect(audienceLabel(ann({ audience_kind: "group", audience_group_id: "x" }), ctx)).toBe("A group that no longer exists");
+    expect(audienceLabel(ann({ audience_kind: "members", audience_member_ids: '["m1","m2","m3","m4"]' }), ctx)).toBe("Alex, Jamie, Casey and 1 more");
+    expect(audienceLabel(ann({ audience_kind: "members", audience_member_ids: '["zz"]' }), ctx)).toBe("Chosen members (none left)");
+  });
+  it("does not call a live audience gone when the viewer sees only part of the roster", () => {
+    const partial = { ...ctx, complete: false };
+    expect(audienceLabel(ann({ audience_kind: "members", audience_member_ids: '["zz"]' }), partial)).toBe("Chosen members");
+    expect(audienceLabel(ann({ audience_kind: "members", audience_member_ids: '["m1","zz"]' }), partial)).toBe("Alex and others");
+    expect(audienceLabel(ann({ audience_kind: "group", audience_group_id: "x" }), partial)).toBe("A group");
+    // Never "… and 1 more and others".
+    const many = { ...partial, members: [...members, { id: "m5", name: "Sam", role: "adult" }] };
+    expect(audienceLabel(ann({ audience_kind: "members", audience_member_ids: '["m1","m2","m3","m4","m5","zz"]' }), many)).toBe("Alex, Jamie, Casey and others");
+  });
+  it("words the email outcome for the action and the audience", () => {
+    expect(emailOutcomeLine({ reason: "not_entitled" }, { done: "approved", audienceKind: "group" })).toBe("Announcement approved. Emailing its audience needs an active plan.");
+    expect(emailOutcomeLine({ reason: "not_entitled" })).toBe("Announcement posted. Emailing everyone needs an active plan.");
+    expect(emailOutcomeLine({ sent: 1 }, { done: "approved" })).toBe("Announcement approved and emailed to 1 person.");
+    expect(emailOutcomeLine({ sent: 0 })).toBe(null);
+    expect(emailOutcomeLine({ reason: "weird" })).toBe("Announcement posted without email.");
+    expect(emailOutcomeLine(null)).toBe(null);
+  });
+  it("validates the compose form's choice", () => {
+    expect(audienceDraft({ kind: "group", groupId: "" }).error).toMatch(/group/);
+    expect(audienceDraft({ kind: "members", memberIds: [] }).error).toMatch(/member/);
+    expect(audienceDraft({ kind: "weird" }).value).toEqual({ audience_kind: "everyone", audience_group_id: null, audience_member_ids: "[]" });
+    expect(audienceDraft({ kind: "members", memberIds: ["m1", "m1", "m2"] }).value.audience_member_ids).toBe('["m1","m2"]');
+    expect(audienceDraft({ kind: "group", groupId: "g1", memberIds: ["m1"] }).value).toEqual({ audience_kind: "group", audience_group_id: "g1", audience_member_ids: "[]" });
+  });
+  it("names who in the audience has not acknowledged", () => {
+    expect(notAcknowledged(ann(), [{ member_id: "m1" }, { member_id: "m4" }], ctx)).toEqual(["m2", "m3"]);
+    expect(notAcknowledged(ann({ audience_kind: "members", audience_member_ids: '["m2"]' }), [{ member_id: "m2" }], ctx)).toEqual([]);
+  });
+  it("asks only the audience to acknowledge a critical announcement", () => {
+    const critical = (over) => ann({ is_critical: 1, ...over });
+    expect(asksToAcknowledge(critical(), "m4", ctx)).toBe(true);
+    expect(asksToAcknowledge(critical(), null, ctx)).toBe(true);
+    expect(asksToAcknowledge(critical({ audience_kind: "members", audience_member_ids: '["m2"]' }), "m2", ctx)).toBe(true);
+    expect(asksToAcknowledge(critical({ audience_kind: "members", audience_member_ids: '["m2"]' }), "m1", ctx)).toBe(false);
+    expect(asksToAcknowledge(critical({ audience_kind: "members", audience_member_ids: '["m2"]' }), null, ctx)).toBe(false);
+    expect(asksToAcknowledge(ann({ is_critical: 0 }), "m1", ctx)).toBe(false);
+  });
+  it("holds attachment ids to the hub file-id shape", () => {
+    expect(isFileId("0f8fad5b-d9cb-469f-a165-70867728950e")).toBe(true);
+    expect(isFileId("0f8fad5b-d9cb-469f-a165-70867728950e/../x")).toBe(false);
+    expect(isFileId(7)).toBe(false);
   });
 });

@@ -2,20 +2,20 @@
   "id": "announcements",
   "name": "Announcements",
   "version": "1.0.0",
-  "description": "Post household announcements with admin approval, expiration, and notification support — including optional email to every member.",
+  "description": "Post household announcements with admin approval, expiration, and notification support — to everyone, a group or chosen members, with optional email and attachments.",
   "entrypoint": "index.html",
   "runtime": "static",
   "storage": "db",
   "preload": {
     "settings": {"sql": "SELECT value FROM app_announcements__settings WHERE key = 'moderator_group_id'"},
-    "announcements": {"sql": "SELECT a.id, a.title, a.body, a.author_id, a.author_name, a.expires_at, a.created_at, a.updated_at, a.is_critical, a.email_everyone, COALESCE(apr.approved_by, a.approved_by) AS approved_by, COALESCE(apr.approved_at, a.approved_at) AS approved_at, CASE WHEN apr.announcement_id IS NOT NULL AND a.expires_at >= ? THEN 'approved' WHEN apr.announcement_id IS NOT NULL THEN 'archived' WHEN a.expires_at < ? THEN 'archived' WHEN a.status = 'approved' THEN 'pending' ELSE a.status END AS status FROM app_announcements__announcements a LEFT JOIN app_announcements__approvals apr ON apr.announcement_id = a.id ORDER BY a.created_at DESC", "params": [":today", ":today"]},
+    "announcements": {"sql": "SELECT a.id, a.title, a.body, a.author_id, a.author_name, a.expires_at, a.created_at, a.updated_at, a.is_critical, a.email_everyone, a.audience_kind, a.audience_group_id, a.audience_member_ids, a.approved_flag, COALESCE(apr.approved_by, a.approved_by) AS approved_by, COALESCE(apr.approved_at, a.approved_at) AS approved_at, CASE WHEN apr.announcement_id IS NOT NULL AND a.expires_at >= ? THEN 'approved' WHEN apr.announcement_id IS NOT NULL THEN 'archived' WHEN a.expires_at < ? THEN 'archived' WHEN a.status = 'approved' THEN 'pending' ELSE a.status END AS status FROM app_announcements__announcements a LEFT JOIN app_announcements__approvals apr ON apr.announcement_id = a.id ORDER BY a.created_at DESC", "params": [":today", ":today"]},
     "acknowledgements": {"sql": "SELECT announcement_id, acknowledged_at FROM app_announcements__acknowledgements WHERE member_id = ?", "params": [":me"]}
   },
   "category": "general",
   "tags": ["announcements", "notices", "admin"],
   "contexts": ["household", "shared_space", "shared_space.roster"],
   "data_access": {
-    "reads": ["family.members", "family.groups"],
+    "reads": ["family.members", "family.groups", "family.app_members"],
     "writes": []
   },
   "permissions": {
@@ -29,27 +29,47 @@
       "visibility_column": "status",
       "everyone_values": ["pending", "approved", "archived"],
       "privileged_groups": [{ "settings_table": "settings", "settings_key": "moderator_group_id" }],
-      "write_owner_only": true
+      "write_owner_only": true,
+      "column_write_acls": {
+        "approved_flag": { "writable_by": [] },
+        "id": { "writable_by": [], "actions": ["update"] },
+        "title": { "writable_by": [], "actions": ["update"] },
+        "body": { "writable_by": [], "actions": ["update"] },
+        "author_name": { "writable_by": [], "actions": ["update"] },
+        "created_at": { "writable_by": [], "actions": ["update"] }
+      }
     },
     "approvals": {
       "kind": "inherit_visibility",
       "fk_column": "announcement_id",
       "parent_table": "announcements",
       "writer_column": "approved_by",
-      "insert_privileged_only": true
+      "insert_privileged_only": true,
+      "column_write_acls": {
+        "announcement_id": { "writable_by": [], "actions": ["update"] },
+        "approved_by": { "writable_by": [], "actions": ["update"] },
+        "approved_at": { "writable_by": [], "actions": ["update"] }
+      }
+    },
+    "attachments": {
+      "kind": "inherit_visibility",
+      "fk_column": "announcement_id",
+      "parent_table": "announcements",
+      "writer_column": "uploaded_by",
+      "insert_only_by_parent_column_member": "author_id",
+      "max_per_member": { "member_column": "uploaded_by", "scope_columns": ["announcement_id"], "limit": 5 },
+      "column_write_acls": {
+        "announcement_id": { "writable_by": [], "actions": ["update"] },
+        "file_id": { "writable_by": [], "actions": ["update"] },
+        "uploaded_by": { "writable_by": [], "actions": ["update"] }
+      }
     },
     "acknowledgements": {
       "kind": "owner_only",
       "member_column": "member_id",
-      "max_per_member": {
-        "member_column": "member_id",
-        "scope_columns": ["announcement_id"],
-        "limit": 1
-      }
+      "max_per_member": { "member_column": "member_id", "scope_columns": ["announcement_id"], "limit": 1 }
     },
-    "settings": {
-      "kind": "app_config"
-    }
+    "settings": { "kind": "app_config" }
   },
   "retention": {
     "announcements": {
@@ -58,7 +78,8 @@
       "override_key": "announcement_history",
       "dependent_tables": [
         { "table": "approvals", "foreign_key": "announcement_id" },
-        { "table": "acknowledgements", "foreign_key": "announcement_id" }
+        { "table": "acknowledgements", "foreign_key": "announcement_id" },
+        { "table": "attachments", "foreign_key": "announcement_id", "file_id_column": "file_id" }
       ]
     }
   },
@@ -70,7 +91,7 @@
         { "column": "body", "label": "Announcement", "format": "multiline" },
         { "column": "created_at", "label": "Posted", "format": "date" }
       ],
-      "visible_where": { "column": "status", "values": ["approved"] }
+      "visible_where": { "column": "approved_flag", "values": ["yes"] }
     }
   },
   "admin_config": {
@@ -78,18 +99,29 @@
     "keys": ["moderator_group_id"]
   },
   "publishes": ["announcement.submitted", "announcement.approved"],
-  "alert_on": ["announcement.approved"],
   "member_references": {
     "announcements": [
       { "column": "author_id", "on_removed": "keep" },
-      { "column": "approved_by", "on_removed": "keep" }
+      { "column": "approved_by", "on_removed": "keep" },
+      { "column": "audience_member_ids", "on_removed": "prune_list" }
     ],
     "approvals": { "column": "approved_by", "on_removed": "keep" },
-    "acknowledgements": { "column": "member_id", "on_removed": "delete", "id_column": "rowid" }
+    "acknowledgements": { "column": "member_id", "on_removed": "delete", "id_column": "rowid" },
+    "attachments": { "column": "uploaded_by", "on_removed": "keep" }
+  },
+  "file_columns": {
+    "attachments": { "columns": ["file_id"] }
+  },
+  "delete_cascades": {
+    "announcements": [
+      { "table": "approvals", "foreign_key": "announcement_id" },
+      { "table": "acknowledgements", "foreign_key": "announcement_id" },
+      { "table": "attachments", "foreign_key": "announcement_id", "file_id_column": "file_id" }
+    ]
   },
   "publish_acls": {
     "announcement.submitted": { "require_role": "adult" },
-    "announcement.approved":  {
+    "announcement.approved": {
       "require_group_setting": { "settings_table": "settings", "settings_key": "moderator_group_id" }
     }
   },
@@ -110,39 +142,9 @@
       },
       "dedupe": { "table": "announcements", "column": "source_event_id" },
       "steps": [
-        {
-          "op": "insert",
-          "table": "announcements",
-          "values": {
-            "id": "$uuid",
-            "title": ":title",
-            "body": ":body",
-            "status": "approved",
-            "author_id": "automation",
-            "author_name": "Automation",
-            "is_critical": ":is_critical",
-            "expires_at": "$now_plus_days(:days)",
-            "created_at": "$now",
-            "updated_at": "$now",
-            "source_event_id": "$event_id"
-          }
-        },
-        {
-          "op": "lookup",
-          "table": "announcements",
-          "where": { "source_event_id": "$event_id" },
-          "bind": { "announcement_id": "id" },
-          "on_missing": "error"
-        },
-        {
-          "op": "insert",
-          "table": "approvals",
-          "values": {
-            "announcement_id": ":announcement_id",
-            "approved_by": "automation",
-            "approved_at": "$now"
-          }
-        }
+        { "op": "insert", "table": "announcements", "values": { "id": "$uuid", "title": ":title", "body": ":body", "status": "approved", "author_id": "automation", "author_name": "Automation", "is_critical": ":is_critical", "expires_at": "$now_plus_days(:days)", "created_at": "$now", "updated_at": "$now", "source_event_id": "$event_id" } },
+        { "op": "lookup", "table": "announcements", "where": { "source_event_id": "$event_id" }, "bind": { "announcement_id": "id" }, "on_missing": "error" },
+        { "op": "insert", "table": "approvals", "values": { "announcement_id": ":announcement_id", "approved_by": "automation", "approved_at": "$now" } }
       ]
     },
     "post_for_approval": {
@@ -155,50 +157,13 @@
       },
       "dedupe": { "table": "announcements", "column": "source_event_id" },
       "steps": [
-        {
-          "op": "insert",
-          "table": "announcements",
-          "values": {
-            "id": "$uuid",
-            "title": ":title",
-            "body": ":body",
-            "status": "pending",
-            "author_id": "automation",
-            "author_name": "Automation",
-            "expires_at": "$now_plus_days(:days)",
-            "created_at": "$now",
-            "updated_at": "$now",
-            "source_event_id": "$event_id"
-          }
-        }
+        { "op": "insert", "table": "announcements", "values": { "id": "$uuid", "title": ":title", "body": ":body", "status": "pending", "author_id": "automation", "author_name": "Automation", "expires_at": "$now_plus_days(:days)", "created_at": "$now", "updated_at": "$now", "source_event_id": "$event_id" } }
       ]
     }
   },
   "suggested_automations": [
-    {
-      "title": "Announce a storm activation immediately",
-      "description": "Activating the emergency plan posts a critical announcement straight away — this is the case where waiting for a moderator to log in is the wrong behaviour.",
-      "trigger_event": "emergency.storm_activated",
-      "target_app_id": "announcements",
-      "action_id": "post",
-      "param_map": {
-        "title": { "kind": "payload_field", "value": "title" },
-        "body": { "kind": "const", "value": "The emergency plan has been activated. Open the emergency app to check in and see resources." },
-        "days": { "kind": "const", "value": 7 },
-        "is_critical": { "kind": "const", "value": true }
-      }
-    },
-    {
-      "title": "Submit an announcement when a survey opens",
-      "description": "A new survey queues a notice for approval rather than posting itself, so routine traffic still passes a moderator.",
-      "trigger_event": "survey.created",
-      "target_app_id": "announcements",
-      "action_id": "post_for_approval",
-      "param_map": {
-        "title": { "kind": "payload_field", "value": "title" },
-        "body": { "kind": "const", "value": "A new survey is open. Add your answers when you get a moment." }
-      }
-    }
+    { "title": "Announce a storm activation immediately", "description": "Activating the emergency plan posts a critical announcement straight away — this is the case where waiting for a moderator to log in is the wrong behaviour.", "trigger_event": "emergency.storm_activated", "target_app_id": "announcements", "action_id": "post", "param_map": { "title": { "kind": "payload_field", "value": "title" }, "body": { "kind": "const", "value": "The emergency plan has been activated. Open the emergency app to check in and see resources." }, "days": { "kind": "const", "value": 7 }, "is_critical": { "kind": "const", "value": true } } },
+    { "title": "Submit an announcement when a survey opens", "description": "A new survey queues a notice for approval rather than posting itself, so routine traffic still passes a moderator.", "trigger_event": "survey.created", "target_app_id": "announcements", "action_id": "post_for_approval", "param_map": { "title": { "kind": "payload_field", "value": "title" }, "body": { "kind": "const", "value": "A new survey is open. Add your answers when you get a moment." } } }
   ],
   "nav": {
     "label": "Announcements"
@@ -206,7 +171,7 @@
   "glance": {
     "source": {
       "kind": "sql",
-      "query": "SELECT title AS title, author_name AS subtitle FROM app_announcements__announcements WHERE status = 'approved' AND substr(expires_at, 1, 10) >= :today ORDER BY created_at DESC LIMIT 3"
+      "query": "SELECT title AS title, author_name AS subtitle FROM app_announcements__announcements WHERE approved_flag = 'yes' AND substr(expires_at, 1, 10) >= :today ORDER BY created_at DESC LIMIT 3"
     },
     "display": { "template": "list", "title": "title", "subtitle": "subtitle" }
   },
@@ -221,5 +186,16 @@
     "db_exports": ["active_announcements", "pending_announcements"],
     "db_mutations": ["extend_expiry"],
     "db_inserts": ["create_announcement"]
+  },
+  "db_plaintext_columns": ["audience_kind", "audience_member_ids", "approved_flag"],
+  "write_effects": {
+    "approvals": {
+      "insert": [
+        { "label": "approved_flag", "statement": "UPDATE app_announcements__announcements SET approved_flag = 'yes' WHERE id = :new.announcement_id" }
+      ],
+      "delete": [
+        { "label": "approved_flag", "bind": "announcement_id", "statement": "UPDATE app_announcements__announcements SET approved_flag = CASE WHEN EXISTS (SELECT 1 FROM app_announcements__approvals x WHERE x.announcement_id = app_announcements__announcements.id) THEN 'yes' ELSE 'no' END WHERE id IN :affected" }
+      ]
+    }
   }
 }

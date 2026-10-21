@@ -239,6 +239,7 @@
       background: var(--text); color: var(--accent-fg); font-size: 0.85rem; line-height: 1.4;
       box-shadow: 0 4px 14px rgba(0,0,0,.18); z-index: 60; text-align: center;
     }
+    .file-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.8rem; margin: 2px 4px 2px 0; color: var(--text); text-decoration: none; }
     .search-row { margin-bottom: 12px; }
     .search-input {
       width: 100%; border: 1.5px solid var(--border-mid, var(--border, #d1d5db));
@@ -275,8 +276,14 @@
 import {
   hubAlert, memberColor, initial, esc, isAdult, hubConfirm, formatRelativeDate, searchMatch, hubToday,
   createShareHelper, activeShareLinks, glyph, chickadee, SHARE_EXPIRY_CHOICES, DEFAULT_SHARE_EXPIRY_HOURS,
+  createFilesHelper,
 } from "/hub-sdk.js";
-import { defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate, searchableFields, canShareAnnouncement, supervisesAcknowledgements, outcomeUnknown, storedDiffers, SAVED_AS_FIRST, failureLine } from "./logic.js";
+import {
+  defaultExpiry, isExpired, effectiveStatus, sortAnnouncements, formatExpiryDate, canModerate as _canModerate, searchableFields,
+  canShareAnnouncement, supervisesAcknowledgements, outcomeUnknown, storedDiffers, SAVED_AS_FIRST, failureLine,
+  audienceIds, notifyAudience, audienceLabel, audienceDraft, notAcknowledged, asksToAcknowledge, isFileId, MAX_ATTACHMENTS, uploadFailureLine, parseStrings,
+  emailOutcomeLine,
+} from "./logic.js";
 import { createShareUi, createOverlayView } from "/hub-share-ui.js";
 
 // The page heading and settings button are static markup; their marks come from the SDK.
@@ -289,6 +296,10 @@ const APP_ID           = window.__APP_ID         ?? "announcements";
 const ME               = window.__CURRENT_MEMBER ?? null;
 const EVENTS_URL       = window.__EVENTS_URL     ?? "/api/events";
 const ADMIN_CONFIG_URL = window.__ADMIN_CONFIG_URL ?? "";
+const FILES_URL        = window.__FILES_URL        ?? "";
+const files            = createFilesHelper(FILES_URL);
+const FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "text/plain",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
 
 // Where the app is running. Other members' acknowledgements are read by any
 // adult in a household and by the steward alone in a shared space.
@@ -300,6 +311,8 @@ const hubAdmin = ME?.isAdmin === true;
 
 let members          = [];
 let groups           = [];
+let appMembers       = null;   // the members the hub admits to this app; null = unknown, use members
+const attachmentsByAnn = new Map();
 let modGroupId       = null;
 let announcements    = [];
 let acknowledgements = [];
@@ -316,6 +329,13 @@ let modalEl          = null;
 function canModerate() {
   return _canModerate(ME, groups, modGroupId);
 }
+
+// What the audience helpers resolve against: the admitted set for "who is
+// told", the roster for names.
+// A roster participant sees only the steward and themselves; nobody else
+// sees a partial roster.
+const COMPLETE_ROSTER = TENANT.spaceKind !== "roster" || TENANT.isAdmin;
+const ctx = () => ({ groups, appMembers, members, complete: COMPLETE_ROSTER });
 
 // External share links (manifest.shareable.announcement). The hub injects the
 // URLs only when the manifest declares `shareable`, and mints for adults only;
@@ -387,13 +407,14 @@ async function loadMembers() {
   }
   // A member list that could not be read is a failed load, not a household with
   // nobody in it: `canModerate` would answer false for everyone.
-  const res  = await fetch(`${CONTEXT}?keys=family.members,family.groups`);
+  const res  = await fetch(`${CONTEXT}?keys=family.members,family.groups,family.app_members`);
   const data = await res.json().catch(() => null);
   if (!res.ok || !data || typeof data !== "object" || data.error) throw new Error("Couldn’t reach the hub. Try again.");
   // A 200 can still name a key the hub failed to read; an absent key with no such entry is only "not permitted".
-  if (Array.isArray(data.$errors) && (data.$errors.includes("family.members") || data.$errors.includes("family.groups"))) throw new Error("Couldn’t reach the hub. Try again.");
-  members = data["family.members"] ?? [];
-  groups  = data["family.groups"]  ?? [];
+  if (Array.isArray(data.$errors) && ["family.members", "family.groups", "family.app_members"].some(k => data.$errors.includes(k))) throw new Error("Couldn’t reach the hub. Try again.");
+  members    = data["family.members"] ?? [];
+  groups     = data["family.groups"]  ?? [];
+  appMembers = data["family.app_members"] ?? null;
 }
 
 async function loadSettings() {
@@ -413,7 +434,7 @@ async function loadAnnouncements() {
   const { rows } = await db(
     `SELECT
        a.id, a.title, a.body, a.author_id, a.author_name, a.expires_at,
-       a.created_at, a.updated_at, a.is_critical, a.email_everyone,
+       a.created_at, a.updated_at, a.is_critical, a.email_everyone, a.audience_kind, a.audience_group_id, a.audience_member_ids, a.approved_flag,
        COALESCE(apr.approved_by, a.approved_by) AS approved_by,
        COALESCE(apr.approved_at, a.approved_at) AS approved_at,
        CASE
@@ -438,6 +459,17 @@ async function loadAcknowledgements() {
     [ME.id]
   );
   acknowledgements = rows ?? [];
+}
+
+async function loadAttachments(announcementId) {
+  if (!DB) { attachmentsByAnn.set(announcementId, attachmentsByAnn.get(announcementId) ?? []); return attachmentsByAnn.get(announcementId); }
+  const { rows } = await db(
+    `SELECT id, file_id, file_name, created_at FROM app_announcements__attachments WHERE announcement_id = ? ORDER BY created_at ASC`,
+    [announcementId]
+  );
+  const list = (rows ?? []).filter(r => isFileId(r.file_id));
+  attachmentsByAnn.set(announcementId, list);
+  return list;
 }
 
 function hasAcknowledged(announcementId) {
@@ -541,7 +573,7 @@ function render() {
 
   // Update unacknowledged critical badge on Active tab
   const unackCritical = announcements.filter(a =>
-    a.status === "approved" && a.is_critical && !hasAcknowledged(a.id)
+    a.status === "approved" && asksToAcknowledge(a, ME?.id, ctx()) && !hasAcknowledged(a.id)
   ).length;
   const critBadge = document.getElementById("critical-badge");
   if (critBadge) {
@@ -602,7 +634,7 @@ function renderCard(ann) {
 
   const isCritical = !!ann.is_critical;
   const acked = isCritical && hasAcknowledged(ann.id);
-  const needsAck = isCritical && !acked && effStatus === "approved";
+  const needsAck = asksToAcknowledge(ann, ME?.id, ctx()) && !acked && effStatus === "approved";
 
   const criticalBadge = isCritical
     ? `<span class="status-badge status-critical" style="margin-left:6px">${glyph("siren", { accent: "currentColor" })} Critical</span>`
@@ -637,6 +669,7 @@ function renderCard(ann) {
         <div class="ann-body" data-testid="ann-body">${esc(ann.body)}</div>
         <div class="ann-meta" data-testid="ann-meta">
           <span>By ${esc(ann.author_name)}</span>
+          ${(ann.audience_kind ?? "everyone") !== "everyone" ? `<span class="ann-meta-dot" data-testid="ann-audience">To ${esc(audienceLabel(ann, ctx()))}</span>` : ""}
           <span class="ann-meta-dot">${expiryLabel}</span>
           <span class="ann-meta-dot">${formatRelativeDate(ann.created_at)}</span>
           ${ackIndicator}
@@ -659,11 +692,38 @@ function openModal(html, testid) {
   document.body.appendChild(modalEl);
 }
 
-function closeModal() { modalEl?.remove(); modalEl = null; }
+// Files uploaded into the open compose dialog, as { id, name } with the name
+// the hub stored (a HEIC may be kept as a JPEG). They belong to that dialog
+// alone: `pendingHost` is the modal they were uploaded into.
+let pendingUploads = [];
+let pendingHost = null;
+// The compose dialog whose post is in flight. While set, the dialog cannot be
+// closed, no upload can be added or removed, and an upload that finishes is
+// deleted: the post took its list of files when it started.
+let postingHost = null;
+
+function dropPending({ deleteFiles }) {
+  if (deleteFiles) for (const { id } of pendingUploads) files.delete(id).catch(() => {});
+  pendingUploads = [];
+  pendingHost = null;
+}
+
+function closeModal() {
+  // A compose dialog closed without posting leaves uploads no row names;
+  // delete them now rather than leaving them in storage until the
+  // household's sweep. A post that reached the hub clears the list first.
+  if (modalEl && modalEl === postingHost) return;
+  if (modalEl && modalEl === pendingHost) dropPending({ deleteFiles: true });
+  modalEl?.remove();
+  modalEl = null;
+}
 
 // ── Submit modal ──────────────────────────────────────────────────────────────
 
 function openSubmitModal() {
+  // A post in flight owns the screen, whichever control asked (the header
+  // buttons use inline handlers, past the delegated guard below).
+  if (postingHost) return;
   // Seeded from the household's day: this value is STORED as expires_at, and
   // the field's own `min` below is already hubToday().
   const expiry = defaultExpiry(new Date(`${hubToday()}T12:00:00`));
@@ -693,6 +753,29 @@ function openSubmitModal() {
         <p class="form-hint">After this date the announcement will be archived automatically.</p>
       </div>
       <div class="form-group">
+        <label for="f-audience">Who is told</label>
+        <select id="f-audience" data-testid="field-audience">
+          <option value="everyone">Everyone</option>
+          <option value="group">A group</option>
+          <option value="members">Chosen members</option>
+        </select>
+        <p class="form-hint">Who gets the push and the email once it is approved. Every member can still read it here.</p>
+      </div>
+      <div class="form-group" id="f-group-row" style="display:none">
+        <label for="f-group">Group</label>
+        <select id="f-group" data-testid="field-group"><option value="">— choose —</option>${groups.map(g => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join("")}</select>
+      </div>
+      <div class="form-group" id="f-members-row" style="display:none">
+        <label>Members</label>
+        ${(appMembers ?? members).map(m => `<label style="display:flex;gap:8px;align-items:center;font-size:0.9rem;margin:4px 0;font-weight:500"><input type="checkbox" data-member="${esc(m.id)}" /> ${esc(m.name)}</label>`).join("")}
+      </div>
+      <div class="form-group">
+        <label for="f-files">Attachments</label>
+        <div id="f-file-list" data-testid="field-attachments"></div>
+        ${FILES_URL ? `<input id="f-files" type="file" accept="${FILE_TYPES.join(",")}" />` : `<p class="form-hint">File uploads are not available here.</p>`}
+        <p class="form-hint">Up to ${MAX_ATTACHMENTS} files: PDF, image, Word or text. Attachments are shown in the app, not on a share link.</p>
+      </div>
+      <div class="form-group">
         <div class="toggle-row" onclick="document.getElementById('f-critical').click();event.stopPropagation()">
           <input id="f-critical" data-testid="field-critical" type="checkbox" onclick="event.stopPropagation()" />
           <label for="f-critical" onclick="event.stopPropagation()">Mark as Critical</label>
@@ -702,8 +785,8 @@ function openSubmitModal() {
       <div class="form-group">
         <div class="toggle-row" onclick="document.getElementById('f-email').click();event.stopPropagation()">
           <input id="f-email" data-testid="field-email" type="checkbox" onclick="event.stopPropagation()" />
-          <label for="f-email" onclick="event.stopPropagation()">Also email everyone</label>
-          <span class="toggle-hint">Sends to each member's inbox once approved</span>
+          <label for="f-email" onclick="event.stopPropagation()">Also send by email</label>
+          <span class="toggle-hint">Emails the people chosen above once approved</span>
         </div>
       </div>
     </div>
@@ -712,7 +795,67 @@ function openSubmitModal() {
       <button class="btn btn-primary" data-testid="submit-save" onclick="submitAnn()">${label}</button>
     </div>`, "submit-modal");
 
+  pendingUploads = [];
+  pendingHost = modalEl;
+  modalEl.querySelector("#f-audience")?.addEventListener("change", (e) => {
+    modalEl.querySelector("#f-group-row").style.display = e.target.value === "group" ? "" : "none";
+    modalEl.querySelector("#f-members-row").style.display = e.target.value === "members" ? "" : "none";
+  });
+  modalEl.querySelector("#f-files")?.addEventListener("change", (e) => uploadAttachment(e.target));
   setTimeout(() => document.getElementById("f-title")?.focus(), 50);
+}
+
+// Uploads happen before the announcement exists, so the ids ride on the modal
+// until Save writes the rows. A file removed before that is deleted at once:
+// no row names it yet, so nothing else ever would.
+async function uploadAttachment(input) {
+  const host = modalEl;
+  const file = input.files?.[0];
+  if (!host || !file || host !== pendingHost || host === postingHost) { input.value = ""; return; }
+  const errEl = host.querySelector("#f-file-error") ?? Object.assign(document.createElement("p"), { id: "f-file-error", className: "form-hint", style: "color:var(--red)" });
+  host.querySelector("#f-file-list")?.after(errEl);
+  if (pendingUploads.length >= MAX_ATTACHMENTS) { errEl.textContent = `Attach at most ${MAX_ATTACHMENTS} files.`; input.value = ""; return; }
+  input.disabled = true;
+  // Counted on the dialog, so Post can wait rather than post without a file
+  // the author is still sending.
+  host.dataset.uploading = String((Number(host.dataset.uploading) || 0) + 1);
+  try {
+    const reply = await files.upload(file);
+    // The dialog was closed while the file was on its way: nothing will
+    // name it, so it goes now.
+    if (pendingHost !== host || postingHost === host) {
+      files.delete(reply.id).catch(() => {});
+      return;
+    }
+    pendingUploads.push({ id: reply.id, name: String(reply.name || file.name).slice(0, 120) });
+    errEl.textContent = "";
+    renderAttachmentChips(host);
+  } catch (e) {
+    console.error(e);
+    errEl.textContent = uploadFailureLine(e);
+  } finally {
+    const left = (Number(host.dataset.uploading) || 1) - 1;
+    if (left > 0) host.dataset.uploading = String(left); else delete host.dataset.uploading;
+    input.disabled = false;
+    input.value = "";
+  }
+}
+
+function renderAttachmentChips(host) {
+  const list = host.querySelector("#f-file-list");
+  if (list) list.innerHTML = pendingUploads.map(({ id, name }) => `<span class="file-chip" data-testid="attachment-chip">${glyph("paperclip")} ${esc(name || "file")} <button type="button" class="btn btn-xs btn-ghost" data-action="drop-upload" data-id="${esc(id)}" aria-label="Remove">×</button></span>`).join("");
+}
+
+// A file removed before posting is deleted at once: no row names it yet, so
+// nothing else ever would.
+async function dropUpload(id) {
+  const host = modalEl;
+  if (!host || host !== pendingHost || host === postingHost) return;
+  const before = pendingUploads.length;
+  pendingUploads = pendingUploads.filter(u => u.id !== id);
+  if (pendingUploads.length === before) return;
+  renderAttachmentChips(host);
+  files.delete(id).catch(() => {});
 }
 
 window.closeModal = closeModal;
@@ -729,8 +872,27 @@ window.submitAnn = async function() {
   if (!expires) return;
 
   const host = modalEl;
+  if (host?.dataset.uploading) { hubAlert("Wait for the attachment to finish uploading, then post."); return; }
+  const audience = audienceDraft({
+    kind: host?.querySelector("#f-audience")?.value,
+    groupId: host?.querySelector("#f-group")?.value,
+    memberIds: [...(host?.querySelectorAll("[data-member]:checked") ?? [])].map(el => el.dataset.member),
+  });
+  if (audience.error) { hubAlert(audience.error); return; }
+  const aud = audience.value;
+  const uploads = host && host === pendingHost ? pendingUploads.filter(u => isFileId(u.id)) : [];
   const btn = host?.querySelector(".modal-actions .btn-primary");
   if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+  // Locked until the post settles: see postingHost.
+  postingHost = host;
+  const fileInput = host?.querySelector("#f-files");
+  if (fileInput) fileInput.disabled = true;
+  host?.querySelectorAll('[data-action="drop-upload"], [data-testid="submit-cancel"], .modal-close').forEach(el => { el.disabled = true; });
+  const unlock = () => {
+    if (postingHost === host) postingHost = null;
+    if (fileInput) fileInput.disabled = false;
+    host?.querySelectorAll('[data-action="drop-upload"], [data-testid="submit-cancel"], .modal-close').forEach(el => { el.disabled = false; });
+  };
 
   // The id is the form's, minted on its first Save and sent on every retry: a
   // try whose answer was lost may have stored the announcement, and a second
@@ -740,17 +902,17 @@ window.submitAnn = async function() {
   const mod        = canModerate();
   const authorId   = ME?.id   ?? "demo";
   const authorName = ME?.name ?? "You";
-  const typed      = { title, body, expires_at: expires, is_critical: isCritical, email_everyone: emailAll };
-  let posted = { title, body, emailAll };
+  const typed      = { title, body, expires_at: expires, is_critical: isCritical, email_everyone: emailAll, ...aud };
+  let posted = { title, body, emailAll, ...aud };
   let note = "";
 
   try {
     // A moderator's own approval goes in the same batch: both are stored, or
     // neither, so a found announcement is never one left pending by accident.
     const statements = [{
-      sql: `INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone)
-       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?)`,
-      params: [id, title, body, authorId, authorName, expires, now, now, isCritical, emailAll],
+      sql: `INSERT INTO app_announcements__announcements (id, title, body, status, author_id, author_name, expires_at, created_at, updated_at, is_critical, email_everyone, audience_kind, audience_group_id, audience_member_ids)
+       VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      params: [id, title, body, authorId, authorName, expires, now, now, isCritical, emailAll, aud.audience_kind, aud.audience_group_id, aud.audience_member_ids],
     }];
     if (mod) {
       statements.push({
@@ -768,7 +930,7 @@ window.submitAnn = async function() {
       let stored = null;
       try {
         stored = (await db(
-          `SELECT title, body, expires_at, is_critical, email_everyone FROM app_announcements__announcements WHERE id = ?`, [id]
+          `SELECT title, body, expires_at, is_critical, email_everyone, audience_kind, audience_group_id, audience_member_ids FROM app_announcements__announcements WHERE id = ?`, [id]
         )).rows?.[0] ?? null;
       } catch (readErr) {
         // The id is ours: with the read-back failed, a UNIQUE answer may be this
@@ -780,9 +942,10 @@ window.submitAnn = async function() {
       console.error(e);
       // Edited since that first try: what was stored is kept, and said so.
       if (storedDiffers(stored, typed)) note = SAVED_AS_FIRST;
-      posted = { title: stored.title, body: stored.body, emailAll: Number(stored.email_everyone) ? 1 : 0 };
+      posted = { title: stored.title, body: stored.body, emailAll: Number(stored.email_everyone) ? 1 : 0, audience_kind: stored.audience_kind, audience_group_id: stored.audience_group_id, audience_member_ids: stored.audience_member_ids };
     }
   } catch (e) {
+    unlock();
     if (btn) { btn.disabled = false; btn.textContent = canModerate() ? "Create Announcement" : "Post Announcement"; }
     console.error(e);
     hubAlert(failureLine(e, { action: "post the announcement", thing: "announcement" }));
@@ -790,7 +953,30 @@ window.submitAnn = async function() {
   }
   if (host) delete host.dataset.rowId;
 
-  // Stored. Nothing below can make the post look failed: a reload that fails
+  // Stored. The attachments follow in their own request: an attachment row is
+  // admitted only against an announcement that exists. If the hub definitely
+  // refused them, the uploads are deleted with the dialog. If the answer was
+  // lost (the rows may have landed), they are left in storage: deleting a
+  // file a stored row names would break it for good, while an unnamed one is
+  // reclaimed by the household's sweep.
+  if (uploads.length) {
+    try {
+      // One multi-row INSERT, not a batch: the table is capped per announcement
+      // (max_per_member), and the hub takes a single INSERT into a capped
+      // table per request, counting every row it carries against the cap.
+      await db(
+        `INSERT INTO app_announcements__attachments (id, announcement_id, file_id, file_name, uploaded_by, created_at) VALUES `
+          + uploads.map(() => "(?, ?, ?, ?, ?, ?)").join(", "),
+        uploads.flatMap(({ id: fid, name }) => [crypto.randomUUID(), id, fid, name, authorId, now]),
+      );
+      dropPending({ deleteFiles: false });
+    } catch (e) {
+      console.error(e);
+      if (outcomeUnknown(e)) dropPending({ deleteFiles: false });
+      note = note ? `${note} The attachments could not be added.` : "Announcement posted, but the attachments could not be added.";
+    }
+  }
+  // Nothing below can make the post look failed: a reload that fails
   // falls back to what was written (a moderator's post is approved with it).
   let isApproved = !!mod;
   try {
@@ -798,13 +984,18 @@ window.submitAnn = async function() {
     isApproved = announcements.find(a => a.id === id)?.status === "approved";
   } catch (e) { console.error(e); }
 
+  // Decided once, so the push, the email and the household conversation can
+  // never disagree about who this is for.
+  const postedAudience = notifyAudience(posted, ctx());
   try {
     await Promise.all([
       isApproved
         ? publishEvent("announcement.approved", id, { title: posted.title, authorId })
         : publishEvent("announcement.submitted", id, { title: posted.title, authorId }),
-      isApproved ? notify(`📢 New Announcement: ${posted.title}`, posted.body.slice(0, 100), posted.emailAll ? posted.body : null) : Promise.resolve(),
-      isApproved ? fetch("/api/messages", {
+      isApproved ? notify(`📢 New Announcement: ${posted.title}`, posted.body.slice(0, 100), posted.emailAll ? posted.body : null, postedAudience, "posted", posted.audience_kind) : Promise.resolve(),
+      // The household conversation reaches everyone, so it carries only an
+      // announcement meant for everyone; a segmented one is told by push.
+      isApproved && postedAudience === "all" ? fetch("/api/messages", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           authorName: "Announcements",
@@ -812,7 +1003,8 @@ window.submitAnn = async function() {
           url: `/run/${APP_ID}?announcementId=${id}`,
         }),
       }).catch(() => {}) : Promise.resolve(),
-      isApproved ? fetch(window.__ACTIVITY_URL ?? "/api/activity", {
+      // The activity feed reaches every member too: same rule as the conversation.
+      isApproved && postedAudience === "all" ? fetch(window.__ACTIVITY_URL ?? "/api/activity", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "conversation_message_posted",
@@ -824,6 +1016,9 @@ window.submitAnn = async function() {
     ]);
   } catch (e) { console.error(e); }
 
+  // Held until here: until the dialog closes, nothing may be attached to a
+  // post that has already taken its list of files.
+  unlock();
   if (modalEl === host) closeModal();
   switchTab(isApproved ? "active" : "pending");
   render();
@@ -832,7 +1027,19 @@ window.submitAnn = async function() {
 
 // ── Detail modal ──────────────────────────────────────────────────────────────
 
+// The detail dialog's attachments: loading, failed, the links, or nothing.
+function attachmentsHtml(id) {
+  const attachments = attachmentsByAnn.get(id);
+  if (attachments === undefined) return `<p class="detail-meta" data-testid="attachments">Loading attachments…</p>`;
+  if (attachments === null) return `<p class="detail-meta" data-testid="attachments">Couldn’t load the attachments. Reopen this announcement to try again.</p>`;
+  if (!attachments.length) return "";
+  return `<div data-testid="attachments" style="margin-bottom:10px">${attachments.map(a => `<a class="file-chip" data-testid="attachment" href="${esc(files.url(a.file_id))}" target="_blank" rel="noopener">${glyph("paperclip")} ${esc(a.file_name || "file")}</a>`).join(" ")}</div>`;
+}
+
 window.openDetail = function(id) {
+  // A post in flight owns the screen, whichever control asked (the header
+  // buttons use inline handlers, past the delegated guard below).
+  if (postingHost) return;
   const ann = announcements.find(a => a.id === id);
   if (!ann) return;
   const effStatus   = effectiveStatus(ann, hubToday());
@@ -844,6 +1051,24 @@ window.openDetail = function(id) {
   const approvedLine = ann.approved_by
     ? `<p class="detail-meta">Approved by ${esc(memberName(ann.approved_by))} · ${formatRelativeDate(ann.approved_at)}</p>`
     : "";
+  const audienceLine = (ann.audience_kind ?? "everyone") !== "everyone"
+    ? `<p class="detail-meta" data-testid="detail-audience">Sent to ${esc(audienceLabel(ann, ctx()))}</p>`
+    : "";
+  const attachmentSection = `<div data-attachments-slot>${attachmentsHtml(id)}</div>`;
+  if (attachmentsByAnn.get(id) === undefined) {
+    // Only the slot is re-drawn, and only while THIS announcement's detail is
+    // still the open dialog: re-opening it would drop an expanded
+    // acknowledgement list or a button mid-request. A failed read says so
+    // once and is then forgotten, so the next open asks again rather than
+    // showing "no attachments" for the session.
+    loadAttachments(id)
+      .catch((e) => { console.error(e); attachmentsByAnn.set(id, null); })
+      .then(() => {
+        const slot = modalEl?.dataset.annId === id ? modalEl.querySelector("[data-attachments-slot]") : null;
+        if (slot) slot.innerHTML = attachmentsHtml(id);
+        if (attachmentsByAnn.get(id) === null) attachmentsByAnn.delete(id);
+      });
+  }
 
   const isCritical = !!ann.is_critical;
   const acked = isCritical && hasAcknowledged(ann.id);
@@ -852,7 +1077,7 @@ window.openDetail = function(id) {
     : null;
 
   let criticalSection = "";
-  if (isCritical && effStatus === "approved") {
+  if (isCritical && effStatus === "approved" && (acked || asksToAcknowledge(ann, ME?.id, ctx()))) {
     if (acked) {
       criticalSection = `
         <div class="ack-banner" data-testid="ack-banner" data-acked="1" style="background:var(--green-light);border-color:#6ee7b7">
@@ -891,12 +1116,15 @@ window.openDetail = function(id) {
       <div style="margin-bottom:10px">${statusBadge(effStatus)}</div>
       <p class="detail-meta">By ${esc(ann.author_name)} · ${formatRelativeDate(ann.created_at)}</p>
       <p class="detail-meta">${expiryLabel}</p>
+      ${audienceLine}
       ${approvedLine}
       <hr class="detail-divider"/>
       ${criticalSection}
       <p class="detail-body" data-testid="detail-body">${esc(ann.body)}</p>
+      ${attachmentSection}
       ${adminButtons}
     </div>`, "detail-modal");
+  modalEl.dataset.annId = id;
 };
 
 // ── Acknowledge ───────────────────────────────────────────────────────────────
@@ -943,13 +1171,16 @@ window.loadAckList = async function(announcementId) {
     el.textContent = "Couldn’t load acknowledgements. Try again.";
     return;
   }
-  if (!rows || rows.length === 0) {
-    el.textContent = "No acknowledgements yet.";
-    return;
-  }
-  el.innerHTML = rows.map(r =>
-    `<div>${esc(memberName(r.member_id))} — ${formatRelativeDate(r.acknowledged_at)}</div>`
-  ).join("");
+  const ann = announcements.find(a => a.id === announcementId);
+  const pending = ann ? notAcknowledged(ann, rows ?? [], ctx()) : [];
+  const nobody = ann ? audienceIds(ann, ctx()).length === 0 : false;
+  const acked = (rows ?? []).map(r => `<div data-testid="ack-row">${esc(memberName(r.member_id))} — ${formatRelativeDate(r.acknowledged_at)}</div>`).join("");
+  const waiting = nobody
+    ? `<div style="margin-top:6px" data-testid="ack-pending">Nobody in its audience can be found, so there is nobody to wait for.</div>`
+    : pending.length
+      ? `<div style="margin-top:6px" data-testid="ack-pending">Not yet: ${pending.map(id => esc(memberName(id))).join(", ")}</div>`
+      : (ann ? `<div style="margin-top:6px" data-testid="ack-pending">Everyone it was sent to has acknowledged.</div>` : "");
+  el.innerHTML = (acked || "No acknowledgements yet.") + waiting;
 };
 
 // ── Approve ───────────────────────────────────────────────────────────────────
@@ -965,22 +1196,28 @@ window.approveAnn = async function(id) {
   let changed;
   try {
     const now = new Date().toISOString();
-    // OR IGNORE + a changed-count gate: `announcement_id` is the approvals
-    // primary key, so a second moderator clicking Approve on the same item used
-    // to hit a constraint error — and before that fix landed, whoever won still
-    // sent the whole fan-out again. Two moderators approving together meant two
-    // notifications, two inbox messages, and two charges against the household's
-    // daily email quota. Only the moderator whose INSERT actually created the
-    // row announces it.
+    // `announcement_id` is the approvals primary key, so of two moderators
+    // approving together exactly one INSERT creates the row, and only that
+    // moderator announces it: two would mean two notifications, two inbox
+    // messages and two charges against the household's daily email quota.
+    // A plain INSERT, because the table's write effect (which marks the
+    // announcement approved) cannot run under OR IGNORE: the loser gets a
+    // UNIQUE refusal, read below as "already approved". Matched on the
+    // message: the hub sends no error code for a transaction that carried
+    // write effects. The effect is a primary-key UPDATE that cannot raise
+    // UNIQUE itself, so the only UNIQUE here is the approval's own key.
     ({ changed } = await db(
-      `INSERT OR IGNORE INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, ?)`,
+      `INSERT INTO app_announcements__approvals (announcement_id, approved_by, approved_at) VALUES (?, ?, ?)`,
       [id, ME?.id ?? "system", now]
     ));
   } catch (e) {
-    if (btn instanceof HTMLButtonElement) { btn.disabled = false; btn.textContent = "Approve"; }
-    console.error(e);
-    hubAlert(failureLine(e, { action: "approve the announcement", thing: "announcement" }));
-    return;
+    if (e?.code === "UNIQUE_CONSTRAINT" || /UNIQUE constraint failed/i.test(String(e?.message ?? ""))) { changed = 0; }
+    else {
+      if (btn instanceof HTMLButtonElement) { btn.disabled = false; btn.textContent = "Approve"; }
+      console.error(e);
+      hubAlert(failureLine(e, { action: "approve the announcement", thing: "announcement" }));
+      return;
+    }
   }
 
   // The approval is stored from here on: a failed reload or fan-out is logged,
@@ -994,19 +1231,20 @@ window.approveAnn = async function(id) {
       return;
     }
 
+    const annAudience = notifyAudience(ann, ctx());
     await Promise.all([
       loadAnnouncements(),
       publishEvent("announcement.approved", id, { title: ann.title, authorId: ann.author_id }),
-      notify(`📢 New Announcement: ${ann.title}`, ann.body.slice(0, 100), ann.email_everyone ? ann.body : null),
-      fetch("/api/messages", {
+      notify(`📢 New Announcement: ${ann.title}`, ann.body.slice(0, 100), ann.email_everyone ? ann.body : null, annAudience, "approved", ann.audience_kind),
+      annAudience === "all" ? fetch("/api/messages", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           authorName: "Announcements",
           body: `📢 ${ann.author_name} posted a new announcement: "${ann.title.slice(0, 60)}"`,
           url: `/run/${APP_ID}?announcementId=${id}`,
         }),
-      }).catch(() => {}),
-      fetch(window.__ACTIVITY_URL ?? "/api/activity", {
+      }).catch(() => {}) : Promise.resolve(),
+      annAudience === "all" ? fetch(window.__ACTIVITY_URL ?? "/api/activity", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "conversation_message_posted",
@@ -1014,7 +1252,7 @@ window.approveAnn = async function(id) {
           description: `${ann.author_name} posted a new announcement: "${ann.title.slice(0, 60)}"`,
           metadata: { deepLink: { appId: APP_ID, params: { announcementId: id } } },
         }),
-      }).catch(() => {}),
+      }).catch(() => {}) : Promise.resolve(),
     ]);
   } catch (e) {
     console.error(e);
@@ -1039,35 +1277,33 @@ window.deleteAnn = async function(id) {
   });
   if (!confirmed) return;
 
-  // One transaction: as two requests, a failure between them left the approval
-  // row behind — and the `inherit_visibility` policy on `approvals` resolves
-  // through a parent that no longer exists, so the orphan was unreachable and
-  // undeletable from the app.
-  let results;
+  // One statement: the manifest's delete_cascades remove the approval, the
+  // acknowledgements and the attachments (reclaiming their files) as trusted
+  // engine statements in the same transaction. The hub refuses this DELETE
+  // inside a batch for that reason, so it is never sent as one.
+  let result;
   try {
-    ({ results } = await dbBatch([
-      { sql: `DELETE FROM app_announcements__approvals WHERE announcement_id = ?`, params: [id] },
-      { sql: `DELETE FROM app_announcements__announcements WHERE id = ?`, params: [id] },
-    ]));
+    result = await db(`DELETE FROM app_announcements__announcements WHERE id = ?`, [id]);
   } catch (e) {
     console.error(e);
     hubAlert(failureLine(e, { action: "delete the announcement", thing: "announcement" }));
     return;
   }
-  // The batch committed: a failed reload is logged, not reported as a failed delete.
+  // The delete committed: a failed reload is logged, not reported as a failed delete.
   let reloaded = true;
   try {
     await loadAnnouncements();
   } catch (e) {
     console.error(e);
     reloaded = false;
-    if (results?.[1]?.changed > 0) announcements = announcements.filter(a => a.id !== id);
+    if (Number(result?.changed ?? 0) > 0) announcements = announcements.filter(a => a.id !== id);
   }
+  attachmentsByAnn.delete(id);
   closeModal();
   render();
   // The hub answers 200 with nothing changed when the caller may not delete
   // this row; the re-read above still shows it, so say why.
-  if (reloaded && results?.[1]?.changed === 0 && announcements.some(a => a.id === id)) {
+  if (reloaded && Number(result?.changed ?? 0) === 0 && announcements.some(a => a.id === id)) {
     hubAlert(failureLine(null, { action: "delete the announcement", thing: "announcement", found: true }));
   }
 };
@@ -1075,6 +1311,9 @@ window.deleteAnn = async function(id) {
 // ── Moderator settings (hub admin only) ───────────────────────────────────────
 
 window.openModSettingsModal = function() {
+  // A post in flight owns the screen, whichever control asked (the header
+  // buttons use inline handlers, past the delegated guard below).
+  if (postingHost) return;
   const groupOpts = groups.map(g => `
     <option value="${esc(g.id)}" ${modGroupId === g.id ? "selected" : ""}>${esc(g.name)}</option>`
   ).join("");
@@ -1142,6 +1381,10 @@ window.openSubmitModal = openSubmitModal;
 // ids are attacker-controllable via raw /api/db and esc() does NOT escape the
 // single quotes an inline handler would break out of — a stored-XSS vector.
 document.addEventListener("click", (e) => {
+  // A post in flight owns the screen: an action behind its dialog (a card
+  // reached by keyboard, say) would open another dialog over a compose one
+  // that cannot close, and leave it stranded.
+  if (postingHost && !postingHost.contains(e.target)) return;
   const el = e.target.closest("[data-action]");
   if (!el) return;
   const id = el.dataset.id;
@@ -1151,6 +1394,7 @@ document.addEventListener("click", (e) => {
     case "delete":  window.deleteAnn(id); break;
     case "ack":     window.acknowledgeAnn(id); break;
     case "acklist": window.loadAckList(id); break;
+    case "drop-upload": dropUpload(id); break;
     case "share": {
       const ann = announcements.find(a => a.id === id);
       if (ann) shareUi.open({ id: ann.id, title: ann.title });
@@ -1167,12 +1411,16 @@ document.addEventListener("click", (e) => {
 // that matters (email capability, per-member opt-out, monthly quota) and
 // reports what it did in `email`; the request never fails just because mail
 // didn't go out, so push is unaffected either way.
-async function notify(title, body, emailBody = null) {
+// `audience` is "all" or an explicit member-id list (logic.js notifyAudience);
+// null means the announcement names nobody who can be told, so nothing is sent
+// and the page says so rather than falling back to everyone.
+async function notify(title, body, emailBody = null, audience = "all", done = "posted", audienceKind = "everyone") {
+  if (audience === null) { toast(`Announcement ${done}, but nobody was told: nobody in its audience can be notified.`); return; }
   const res = await fetch(window.__NOTIFY_URL ?? "/api/notifications/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      title, body, url: `/run/${APP_ID}`, source_app_id: APP_ID,
+      title, body, url: `/run/${APP_ID}`, source_app_id: APP_ID, audience,
       ...(emailBody ? { channels: ["push", "email"], email_body: emailBody } : {}),
     }),
   }).catch(() => null);
@@ -1181,7 +1429,8 @@ async function notify(title, body, emailBody = null) {
   const alsoEmail = !!emailBody;
   if (!alsoEmail || !res) return;
   const email = await res.json().then(d => d?.email).catch(() => null);
-  if (email) reportEmailOutcome(email);
+  const line = emailOutcomeLine(email, { done, audienceKind: audienceKind ?? "everyone" });
+  if (line) toast(line);
 }
 
 let toastTimer = null;
@@ -1197,18 +1446,6 @@ function toast(message) {
   el.textContent = message;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.remove(), 5000);
-}
-
-const EMAIL_FAILURE_COPY = {
-  not_entitled: "Announcement posted. Emailing everyone needs an active plan.",
-  no_transport: "Announcement posted, but email isn't configured for this hub.",
-  no_recipients: "Announcement posted. Nobody has an address set, so no email went out.",
-  quota_exhausted: "Announcement posted, but this household hit its monthly email limit.",
-};
-
-function reportEmailOutcome(email) {
-  if (email.reason) { toast(EMAIL_FAILURE_COPY[email.reason] ?? "Announcement posted without email."); return; }
-  if (email.sent > 0) toast(`Announcement posted and emailed to ${email.sent} ${email.sent === 1 ? "person" : "people"}.`);
 }
 
 async function publishEvent(type, subjectId, payload = {}) {
@@ -1230,8 +1467,8 @@ function loadDemoData() {
     const d = new Date(now); d.setDate(d.getDate() - days); return d.toISOString();
   };
   announcements = [
-    { id: "demo-1", title: "Pool party this Saturday!", body: "Everyone is invited to the neighborhood pool party at 2pm. Bring a dish to share!", status: "approved", author_id: "demo-1", author_name: "Alex", expires_at: future(5), approved_by: "demo-1", approved_at: past(1), created_at: past(2), updated_at: past(1), is_critical: 0 },
-    { id: "demo-2", title: "New community rules — action required", body: "Updated community guidelines are now in effect. All residents must review and acknowledge these new rules. Key changes include quiet hours, guest parking policy, and common area usage.", status: "approved", author_id: "demo-1", author_name: "Alex", expires_at: future(30), approved_by: "demo-1", approved_at: past(1), created_at: past(1), updated_at: past(1), is_critical: 1 },
+    { id: "demo-1", title: "Pool party this Saturday!", body: "Everyone is invited to the neighborhood pool party at 2pm. Bring a dish to share!", status: "approved", approved_flag: "yes", author_id: "demo-1", author_name: "Alex", expires_at: future(5), approved_by: "demo-1", approved_at: past(1), created_at: past(2), updated_at: past(1), is_critical: 0 },
+    { id: "demo-2", title: "New community rules — action required", body: "Updated community guidelines are now in effect. All residents must review and acknowledge these new rules. Key changes include quiet hours, guest parking policy, and common area usage.", status: "approved", approved_flag: "yes", author_id: "demo-1", author_name: "Alex", expires_at: future(30), approved_by: "demo-1", approved_at: past(1), created_at: past(1), updated_at: past(1), is_critical: 1, audience_kind: "members", audience_member_ids: JSON.stringify(["demo-1", "demo-2"]) },
     { id: "demo-3", title: "Lost cat — please help", body: "Our cat Mochi has been missing since Thursday evening. Orange tabby, answers to his name. Please contact us if you see him!", status: "pending", author_id: "demo-3", author_name: "Casey", expires_at: future(7), approved_by: null, approved_at: null, created_at: past(1), updated_at: past(1), is_critical: 0 },
     { id: "demo-4", title: "Summer BBQ recap", body: "Thanks to everyone who came out to the summer BBQ! It was a wonderful time.", status: "archived", author_id: "demo-1", author_name: "Alex", expires_at: past(10).slice(0,10), approved_by: "demo-1", approved_at: past(20), created_at: past(21), updated_at: past(10), is_critical: 0 },
   ];
